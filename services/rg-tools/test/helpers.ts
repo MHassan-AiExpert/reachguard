@@ -34,6 +34,9 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     smtpPort: 1025,
     eventsWebhookUrl: 'http://n8n.test/webhook/rg/events',
     sandboxStepDelayMinutes: 3,
+    intakeWebhookUrl: 'http://n8n.test/webhook/rg/intake',
+    sandboxDataDir: path.join(repoRoot, 'sandbox'),
+    dkimSelector: 'rg',
     ...overrides,
   };
 }

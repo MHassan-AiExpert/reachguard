@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { classifyEmail } from '../lib/email.js';
+import { checkDnsAuth } from '../lib/dns-auth.js';
 import { mxLookup } from '../lib/mx.js';
 import { normalizeNames } from '../lib/names.js';
 import type { ResolvedDeps } from '../server.js';
@@ -33,6 +34,19 @@ export function registerHygiene(app: FastifyInstance, deps: ResolvedDeps): void 
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_request' });
     try {
       return await mxLookup(parsed.data.domain, { resolver: deps.dns, cache: deps.mxCache });
+    } catch {
+      return reply.code(502).send({ error: 'dns_unavailable' });
+    }
+  });
+
+  app.post('/v1/hygiene/dns-auth', async (req, reply) => {
+    const parsed = MxBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_request' });
+    // Sandbox domains are not real, so there is nothing to look up; the answer is fixed and says so.
+    if (deps.config.mode === 'sandbox') return { spf_ok: true, dkim_ok: true, dmarc_ok: true, provider: 'sandbox' };
+    try {
+      const r = await checkDnsAuth(parsed.data.domain, deps.config.dkimSelector, deps.txt);
+      return { ...r, provider: 'dns' };
     } catch {
       return reply.code(502).send({ error: 'dns_unavailable' });
     }

@@ -1,0 +1,451 @@
+{
+  "id": "rgwf11",
+  "name": "WF-11 Domain Guardian",
+  "nodes": [
+    {
+      "id": "8b47bb6e-9dbe-4d05-3518-e1429d68a24b",
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "b70089de-6a82-3dec-4152-906106cf6423",
+      "name": "Check domain health",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH bad AS (\n  SELECT h.domain, h.sends_7d, h.hard_bounce_rate, h.complaint_rate\n    FROM v_domain_health_rates h\n    JOIN sending_domains d ON d.domain = h.domain\n   WHERE h.sends_7d >= 30\n     AND (h.hard_bounce_rate > 0.02 OR h.complaint_rate > 0.001)\n     AND d.status <> 'paused'),\npd AS (\n  UPDATE sending_domains d\n     SET status = 'paused', paused_at = now(),\n         paused_reason = 'auto: ' || CASE WHEN b.hard_bounce_rate > 0.02\n                                          THEN 'hard bounce rate ' || round(b.hard_bounce_rate * 100, 2) || '%'\n                                          ELSE 'complaint rate ' || round(b.complaint_rate * 100, 3) || '%' END\n                         || ' over ' || b.sends_7d || ' sends in 7 days'\n    FROM bad b WHERE d.domain = b.domain\n  RETURNING d.domain, d.paused_reason),\npi AS (\n  UPDATE sender_inboxes SET status = 'paused' WHERE domain IN (SELECT domain FROM pd) RETURNING 1)\nSELECT pd.domain::text AS domain, pd.paused_reason, (SELECT count(*) FROM pi) AS inboxes_paused, (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id\n  FROM pd",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "ea10e507-846a-ab8a-e0b1-793a7f5cfe4c",
+      "name": "Alert domain paused",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ \"Sending domain \" + $json.domain + \" paused (\" + $json.paused_reason + \"). Its inboxes are paused too and nothing more will go out from it. Check the cause and DNS authentication, then set status back to active in sending_domains to resume.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "e7deeca2-71f1-83db-828b-a0665288c4c4",
+      "name": "Check LLM budget",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH s AS (SELECT usd FROM v_llm_spend_today),\ncap AS (SELECT (value #>> '{}')::numeric AS usd FROM settings WHERE key = 'llm_daily_budget_usd'),\nst AS (SELECT COALESCE((SELECT (value #>> '{}')::boolean FROM settings WHERE key = 'llm_paused'), false) AS paused,\n              (SELECT value #>> '{}' FROM settings WHERE key = 'llm_paused_reason') AS reason),\npause AS (\n  UPDATE settings SET value = 'true'::jsonb, updated_at = now()\n   WHERE key = 'llm_paused' AND (SELECT usd FROM s) > (SELECT usd FROM cap) AND NOT (SELECT paused FROM st)\n  RETURNING 1),\nwhy AS (\n  INSERT INTO settings (key, value) SELECT 'llm_paused_reason', '\"budget\"'::jsonb WHERE EXISTS (SELECT 1 FROM pause)\n  ON CONFLICT (key) DO UPDATE SET value = '\"budget\"'::jsonb, updated_at = now()\n  RETURNING 1),\nresume AS (\n  UPDATE settings SET value = 'false'::jsonb, updated_at = now()\n   WHERE key = 'llm_paused' AND (SELECT paused FROM st) AND (SELECT reason FROM st) = 'budget'\n     AND (SELECT usd FROM s) <= (SELECT usd FROM cap)\n  RETURNING 1),\nclr AS (\n  DELETE FROM settings WHERE key = 'llm_paused_reason' AND EXISTS (SELECT 1 FROM resume) RETURNING 1)\nSELECT EXISTS (SELECT 1 FROM pause) AS newly_paused, EXISTS (SELECT 1 FROM resume) AS resumed,\n       (SELECT usd FROM s) AS spent_usd, (SELECT usd FROM cap) AS cap_usd, (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        160
+      ]
+    },
+    {
+      "id": "2c52e60a-88a3-5e57-4ce1-523ccab1efc9",
+      "name": "Budget state changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.newly_paused === true || $json.resumed === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        160
+      ]
+    },
+    {
+      "id": "122e1375-cf23-7e64-e578-c3a2b1a58f87",
+      "name": "Alert LLM budget",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.newly_paused ? \"LLM spend today is $\" + Number($json.spent_usd).toFixed(2) + \", over the $\" + Number($json.cap_usd).toFixed(2) + \" daily budget. LLM stages are paused and resume automatically tomorrow, or set llm_paused to false to resume now.\" : \"LLM budget reset for a new day. LLM stages resumed.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "2a1aaf8f-4d6f-5593-79e9-4df08b7285e9",
+      "name": "Daily DNS check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1440
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "b899b647-78f3-c567-a97a-fd53b3bf5ef2",
+      "name": "List sending domains",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT domain::text AS domain FROM sending_domains WHERE status <> 'paused' ORDER BY domain",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        320
+      ]
+    },
+    {
+      "id": "11c762f9-e019-3c65-e3c8-654dedaf5adb",
+      "name": "DNS auth check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/hygiene/dns-auth",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $json.domain }) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        520,
+        320
+      ]
+    },
+    {
+      "id": "87ebd5e9-b545-3646-49e1-df7f0390ab3c",
+      "name": "Evaluate DNS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// A failed lookup (rg-tools answers 502 on a DNS timeout) is not a failed check: never pause a domain on a blip.\nconst doms = $('List sending domains').all();\nreturn $input.all().map((r, i) => {\n  const ok = r.json.statusCode === 200;\n  const b = (ok && r.json.body) || {};\n  const failed = ok ? ['spf', 'dkim', 'dmarc'].filter((k) => b[k + '_ok'] !== true) : [];\n  return { json: {\n    domain: doms[i].json.domain, checked: ok,\n    spf_ok: ok ? b.spf_ok === true : null, dkim_ok: ok ? b.dkim_ok === true : null, dmarc_ok: ok ? b.dmarc_ok === true : null,\n    failed,\n  } };\n});"
+      },
+      "position": [
+        780,
+        160
+      ]
+    },
+    {
+      "id": "6e0ee551-9969-be2b-fc3f-ed525472a5d2",
+      "name": "Record DNS result",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH u AS (\n  UPDATE sending_domains\n     SET spf_ok = COALESCE($2::boolean, spf_ok), dkim_ok = COALESCE($3::boolean, dkim_ok),\n         dmarc_ok = COALESCE($4::boolean, dmarc_ok), checked_at = CASE WHEN $6::boolean THEN now() ELSE checked_at END\n   WHERE domain = $1::citext RETURNING domain),\np AS (\n  UPDATE sending_domains\n     SET status = 'paused', paused_at = now(), paused_reason = 'auto: DNS authentication failed (' || $5 || ')'\n   WHERE domain = $1::citext AND $7::boolean AND status <> 'paused'\n  RETURNING domain),\npi AS (\n  UPDATE sender_inboxes SET status = 'paused' WHERE domain IN (SELECT domain FROM p) RETURNING 1)\nSELECT $1::text AS domain, $5::text AS failed, (SELECT count(*) FROM p) > 0 AS newly_paused,\n       (SELECT count(*) FROM u) AS updated, (SELECT count(*) FROM pi) AS inboxes_paused, (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id",
+        "options": {
+          "queryReplacement": "={{ [$json.domain, $json.spf_ok, $json.dkim_ok, $json.dmarc_ok, $json.failed.join(\", \"), $json.checked, $json.checked && $json.failed.length > 0] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "86b7921e-37ef-e656-a3a8-1d39a8baf157",
+      "name": "DNS newly paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.newly_paused === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "ece78e88-2741-af57-2017-decbccb295c8",
+      "name": "Alert DNS failure",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ \"Sending domain \" + $json.domain + \" failed DNS authentication (\" + $json.failed + \"). It and its inboxes are paused. Fix the records, then set status back to active in sending_domains.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        1560,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "Check domain health",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check LLM budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check domain health": {
+      "main": [
+        [
+          {
+            "node": "Alert domain paused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check LLM budget": {
+      "main": [
+        [
+          {
+            "node": "Budget state changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Budget state changed?": {
+      "main": [
+        [
+          {
+            "node": "Alert LLM budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily DNS check": {
+      "main": [
+        [
+          {
+            "node": "List sending domains",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List sending domains": {
+      "main": [
+        [
+          {
+            "node": "DNS auth check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DNS auth check": {
+      "main": [
+        [
+          {
+            "node": "Evaluate DNS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate DNS": {
+      "main": [
+        [
+          {
+            "node": "Record DNS result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record DNS result": {
+      "main": [
+        [
+          {
+            "node": "DNS newly paused?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DNS newly paused?": {
+      "main": [
+        [
+          {
+            "node": "Alert DNS failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

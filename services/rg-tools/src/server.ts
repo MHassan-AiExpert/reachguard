@@ -29,6 +29,7 @@ import { registerResearch } from './routes/research.js';
 import { loadSendingRules, type SendingRules } from './lib/schedule.js';
 import { registerSchedule } from './routes/schedule.js';
 import { registerScore } from './routes/score.js';
+import { systemTxtResolver, type TxtResolver } from './lib/dns-auth.js';
 import { registerSandbox } from './routes/sandbox.js';
 import { registerSandboxSites } from './routes/sandbox-sites.js';
 import { registerSend } from './routes/send.js';
@@ -40,6 +41,7 @@ export interface Deps {
   db?: Db;
   contracts?: ContractRegistry;
   dns?: DnsResolver;
+  txt?: TxtResolver;
   mxCache?: MxCache;
   lists?: HygieneLists;
   verifier?: Verifier;
@@ -62,6 +64,7 @@ export interface Deps {
 export interface ResolvedDeps extends Deps {
   contracts: ContractRegistry;
   dns: DnsResolver;
+  txt: TxtResolver;
   mxCache: MxCache;
   lists: HygieneLists;
   verifier: Verifier;
@@ -91,6 +94,7 @@ export function buildServer(deps: Deps): FastifyInstance {
     ...deps,
     contracts: deps.contracts ?? loadContracts(deps.config.contractsDir),
     dns: deps.dns ?? systemResolver,
+    txt: deps.txt ?? systemTxtResolver,
     mxCache: deps.mxCache ?? createMemoryCache(),
     lists: deps.lists ?? loadHygieneLists(deps.config.configDir),
     verifier: deps.verifier ?? createVerifier(deps.config),

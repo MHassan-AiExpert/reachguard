@@ -1,0 +1,865 @@
+{
+  "id": "rgwf14",
+  "name": "WF-14 Sandbox Demo Runner",
+  "nodes": [
+    {
+      "id": "f3dc623d-dfe6-ddf1-2745-6fc341b4ce19",
+      "name": "Manual trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "7305adbe-34c2-ce53-17c3-fa2a46cd98b9",
+      "name": "Check mode",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/schedule/plan",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ delays: [0] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "cfe9ea24-e5ff-7af0-73b2-d845f92e713d",
+      "name": "Sandbox mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.mode === 'sandbox' }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "b360b48d-c71b-060a-69a1-6e5c6b55342a",
+      "name": "Refuse live mode",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "WF-14 refuses to run: MODE is live. The demo runner resets data and only runs in sandbox mode."
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "841f438e-7257-644c-fd72-4802e1f15338",
+      "name": "Reset sandbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/sandbox/reset",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        780,
+        160
+      ]
+    },
+    {
+      "id": "69ad57d4-9952-aa39-e03b-3c1f8fa869e2",
+      "name": "Seed leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/sandbox/seed",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "3f74c0c8-12a7-1843-1110-64293559a4de",
+      "name": "Start clock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { started_at: Date.now(), deadline: Date.now() + 1200000, seed: $json } }];"
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "c90101d6-44f5-c7cf-df78-f26044cfa75a",
+      "name": "Run WF-02",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf02",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "0ae4834c-5cc1-d9cf-c50f-6c4baf82cce2",
+      "name": "Run WF-03",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf03",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "4d737da4-ddb2-7caa-138d-d98506222c8e",
+      "name": "Run WF-04",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf04",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "11ef2207-3b40-3f68-9073-37d06ac037f9",
+      "name": "Run WF-05",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf05",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "69f54007-ec52-2393-88d4-57ff0f02f59a",
+      "name": "Run WF-06",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf06",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "bf5d3eb1-f579-e28f-46d1-d4a0d2fad1bd",
+      "name": "Run WF-07a",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf07a",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "a85336b2-32d8-9a26-2da3-1ecf957e627b",
+      "name": "Demo auto-approve",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH pend AS (SELECT id FROM leads WHERE status = 'pending_approval'),\na AS (\n  UPDATE approvals SET decision = 'approved', decided_at = now(), decided_by = 'demo-runner', reason = 'sandbox demo auto-approve'\n   WHERE lead_id IN (SELECT id FROM pend) AND decision IS NULL RETURNING 1),\ndr AS (\n  UPDATE drafts SET status = 'approved' WHERE lead_id IN (SELECT id FROM pend) AND status = 'qa_pass' RETURNING 1)\nSELECT count(transition_lead(p.id, 'pending_approval'::lead_status, 'approved'::lead_status, 'sandbox demo auto-approve', 'WF-14'))::int AS auto_approved,\n       (SELECT count(*) FROM a)::int AS approvals_closed, (SELECT count(*) FROM dr)::int AS drafts_approved\n  FROM pend p",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "9e5c8244-43bb-9998-a99c-68f34586902d",
+      "name": "Run WF-08a",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf08a",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "1836e498-ad16-59fa-59b1-8e3af5f282e1",
+      "name": "Run WF-08b",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "rgwf08b",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "id": "fc2ca8ad-1fe7-dc84-ec01-0a1e95c7277c",
+      "name": "Work remaining",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ((SELECT count(*) FROM leads WHERE status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued'))\n       + (SELECT count(*) FROM sends WHERE status = 'scheduled'))::int AS in_flight",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "id": "1d6f15f6-eea6-f98a-a3f0-ef3e8caef61c",
+      "name": "Loop done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-4e756d626572",
+              "leftValue": "={{ Number($json.in_flight) === 0 || Date.now() > $('Start clock').first().json.deadline }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        4160,
+        0
+      ]
+    },
+    {
+      "id": "f773def4-2ee2-0463-fe9b-e18f0ce4922e",
+      "name": "Wait between passes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 20,
+        "unit": "seconds"
+      },
+      "position": [
+        4420,
+        0
+      ]
+    },
+    {
+      "id": "ce293ace-cde8-5f1c-484e-a34d81b233c0",
+      "name": "Inject replies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/sandbox/replies/batch",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        4420,
+        160
+      ]
+    },
+    {
+      "id": "348501da-0713-b66c-9677-e51e12f7f6d4",
+      "name": "Replies pending",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT count(*)::int AS pending FROM replies\n        WHERE next_action IS NULL AND created_at > now() - interval '5 minutes'",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        4680,
+        0
+      ]
+    },
+    {
+      "id": "24a6a254-8280-782a-537d-adedc6b8817f",
+      "name": "Replies settled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-4e756d626572",
+              "leftValue": "={{ Number($json.pending) === 0 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        4940,
+        0
+      ]
+    },
+    {
+      "id": "cac739a4-33a3-1b1e-15d5-0b066afe0222",
+      "name": "Wait for replies",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "position": [
+        5200,
+        0
+      ]
+    },
+    {
+      "id": "5ad7d6d8-1b17-917d-2e79-bf2731789d52",
+      "name": "Funnel summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT string_agg(status || ': ' || n, E'\\n' ORDER BY status)\n     FROM (SELECT status::text AS status, count(*) AS n FROM leads GROUP BY status) t) AS by_status,\n  (SELECT string_agg(check_name || ' x' || n, ', ' ORDER BY n DESC)\n     FROM (SELECT check_name, count(*) AS n FROM verification_results WHERE outcome = 'fail' GROUP BY check_name) t) AS hygiene_blocks,\n  (SELECT string_agg(COALESCE(classification, 'unclassified') || ': ' || n, ', ' ORDER BY classification)\n     FROM (SELECT classification, count(*) AS n FROM replies GROUP BY classification) t) AS reply_classes,\n  (SELECT count(*) FROM sends WHERE status = 'sent')::int AS emails_sent,\n  (SELECT count(*) FROM approvals WHERE decided_by = 'demo-runner')::int AS auto_approved,\n  (SELECT COALESCE(sum(cost_usd), 0) FROM llm_calls)::numeric(10,4) AS llm_cost_usd,\n  (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        5200,
+        160
+      ]
+    },
+    {
+      "id": "a737de93-0283-c51c-d9b8-8c0520e72ae7",
+      "name": "Post summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ \"ReachGuard sandbox demo finished\" + (Date.now() > $('Start clock').first().json.deadline ? \" (time cap reached, some leads were still in flight)\" : \"\") + \"\\n\\nLeads by status:\\n\" + ($json.by_status ?? \"none\") + \"\\n\\nHygiene blocks: \" + ($json.hygiene_blocks ?? \"none\") + \"\\nReplies: \" + ($json.reply_classes ?? \"none\") + \"\\nEmails sent (sandbox inbox): \" + $json.emails_sent + \"\\nLLM cost: $\" + $json.llm_cost_usd + \"\\n\\n\" + $json.auto_approved + \" lead(s) were auto-approved by the demo runner in place of a human.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        5460,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Manual trigger": {
+      "main": [
+        [
+          {
+            "node": "Check mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check mode": {
+      "main": [
+        [
+          {
+            "node": "Sandbox mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sandbox mode?": {
+      "main": [
+        [
+          {
+            "node": "Reset sandbox",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse live mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset sandbox": {
+      "main": [
+        [
+          {
+            "node": "Seed leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed leads": {
+      "main": [
+        [
+          {
+            "node": "Start clock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start clock": {
+      "main": [
+        [
+          {
+            "node": "Run WF-02",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-02": {
+      "main": [
+        [
+          {
+            "node": "Run WF-03",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-03": {
+      "main": [
+        [
+          {
+            "node": "Run WF-04",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-04": {
+      "main": [
+        [
+          {
+            "node": "Run WF-05",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-05": {
+      "main": [
+        [
+          {
+            "node": "Run WF-06",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-06": {
+      "main": [
+        [
+          {
+            "node": "Run WF-07a",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-07a": {
+      "main": [
+        [
+          {
+            "node": "Demo auto-approve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Demo auto-approve": {
+      "main": [
+        [
+          {
+            "node": "Run WF-08a",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-08a": {
+      "main": [
+        [
+          {
+            "node": "Run WF-08b",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run WF-08b": {
+      "main": [
+        [
+          {
+            "node": "Work remaining",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Work remaining": {
+      "main": [
+        [
+          {
+            "node": "Loop done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop done?": {
+      "main": [
+        [
+          {
+            "node": "Inject replies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait between passes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait between passes": {
+      "main": [
+        [
+          {
+            "node": "Run WF-02",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inject replies": {
+      "main": [
+        [
+          {
+            "node": "Replies pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replies pending": {
+      "main": [
+        [
+          {
+            "node": "Replies settled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replies settled?": {
+      "main": [
+        [
+          {
+            "node": "Funnel summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for replies": {
+      "main": [
+        [
+          {
+            "node": "Replies pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Funnel summary": {
+      "main": [
+        [
+          {
+            "node": "Post summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

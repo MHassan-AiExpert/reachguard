@@ -248,3 +248,26 @@ export function noOp(name: string): NodeSpec {
 export function errorTrigger(name = 'Error Trigger'): NodeSpec {
   return { name, type: 'n8n-nodes-base.errorTrigger', typeVersion: 1, parameters: {} };
 }
+
+export function manualTrigger(name = 'Manual trigger'): NodeSpec {
+  return { name, type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, parameters: {} };
+}
+
+/** Ends the execution with an error, which also hands it to the error workflow. */
+export function stopAndError(name: string, message: string): NodeSpec {
+  return {
+    name,
+    type: 'n8n-nodes-base.stopAndError',
+    typeVersion: 1,
+    parameters: { errorType: 'errorMessage', errorMessage: message },
+  };
+}
+
+export function wait(name: string, seconds: number): NodeSpec {
+  return {
+    name,
+    type: 'n8n-nodes-base.wait',
+    typeVersion: 1.1,
+    parameters: { resume: 'timeInterval', amount: seconds, unit: 'seconds' },
+  };
+}

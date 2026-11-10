@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { signWebhook } from '../lib/webhook.js';
@@ -12,6 +14,59 @@ const Body = z.object({
   provider_event_id: z.string().min(1).max(200).optional(),
 });
 
+type DeliverOutcome =
+  | { status: 'delivered'; provider_event_id: string }
+  | { status: 'lead_not_found'; provider_event_id: string }
+  | { status: 'failed'; provider_event_id: string; detail: Record<string, unknown> };
+
+/** Posts one event to the events webhook exactly as the provider would, signed with the shared secret. */
+async function deliverEvent(
+  deps: ResolvedDeps,
+  leadId: string,
+  type: string,
+  body: string | undefined,
+  providerEventId: string,
+): Promise<DeliverOutcome> {
+  const db = deps.db!;
+  const lead = (await db.query<{ email: string }>('SELECT email::text AS email FROM leads WHERE id = $1', [leadId])).rows[0];
+  if (!lead) return { status: 'lead_not_found', provider_event_id: providerEventId };
+  const send = (
+    await db.query<{ id: string }>(
+      "SELECT id FROM sends WHERE lead_id = $1 AND status = 'sent' ORDER BY sent_at DESC NULLS LAST, step DESC LIMIT 1",
+      [leadId],
+    )
+  ).rows[0];
+  const raw = JSON.stringify({
+    provider: 'sandbox',
+    payload: {
+      provider_event_id: providerEventId,
+      type,
+      lead_id: leadId,
+      send_id: send?.id,
+      email: lead.email,
+      body,
+      occurred_at: new Date().toISOString(),
+    },
+  });
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  try {
+    const res = await deps.webhookFetch(deps.config.eventsWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'X-RG-Timestamp': timestamp,
+        'X-RG-Signature': signWebhook(deps.config.webhookSecret, raw, timestamp),
+      },
+      body: raw,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return { status: 'failed', provider_event_id: providerEventId, detail: { status: res.status } };
+    return { status: 'delivered', provider_event_id: providerEventId };
+  } catch (err) {
+    return { status: 'failed', provider_event_id: providerEventId, detail: { error: (err as Error).message } };
+  }
+}
+
 /** Injects a reply, bounce or other event as if the provider had called the events webhook. Sandbox only. */
 export function registerSandbox(app: FastifyInstance, deps: ResolvedDeps): void {
   app.post('/v1/sandbox/replies', async (req, reply) => {
@@ -20,36 +75,67 @@ export function registerSandbox(app: FastifyInstance, deps: ResolvedDeps): void 
     if (deps.config.mode !== 'sandbox') return reply.code(403).send({ error: 'sandbox_only' });
     if (!deps.db) return reply.code(503).send({ error: 'db_unavailable' });
     const { lead_id, type, body } = parsed.data;
+    const out = await deliverEvent(deps, lead_id, type, body, parsed.data.provider_event_id ?? `sbx-${randomUUID()}`);
+    if (out.status === 'lead_not_found') return reply.code(404).send({ error: 'lead_not_found' });
+    if (out.status === 'failed') return reply.code(502).send({ delivered: false, ...out.detail, provider_event_id: out.provider_event_id });
+    return { delivered: true, provider_event_id: out.provider_event_id };
+  });
 
-    const lead = (
-      await deps.db.query<{ email: string }>('SELECT email::text AS email FROM leads WHERE id = $1', [
-        lead_id,
-      ])
-    ).rows[0];
-    if (!lead) return reply.code(404).send({ error: 'lead_not_found' });
-    const send = (
-      await deps.db.query<{ id: string }>(
-        "SELECT id FROM sends WHERE lead_id = $1 AND status = 'sent' ORDER BY sent_at DESC NULLS LAST, step DESC LIMIT 1",
-        [lead_id],
-      )
-    ).rows[0];
+  /** Injects every labeled event in sandbox/replies.json (matched to leads by email) through the events webhook. */
+  app.post('/v1/sandbox/replies/batch', async (_req, reply) => {
+    if (deps.config.mode !== 'sandbox') return reply.code(403).send({ error: 'sandbox_only' });
+    if (!deps.db) return reply.code(503).send({ error: 'db_unavailable' });
+    let items: { email: string; type?: (typeof EVENT_TYPES)[number]; body?: string }[];
+    try {
+      items = JSON.parse(readFileSync(path.join(deps.config.sandboxDataDir, 'replies.json'), 'utf8'));
+    } catch {
+      return reply.code(404).send({ error: 'replies_file_missing' });
+    }
+    let delivered = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const [i, item] of items.entries()) {
+      const lead = (
+        await deps.db.query<{ id: string }>('SELECT id FROM leads WHERE email = $1::citext', [String(item.email).toLowerCase()])
+      ).rows[0];
+      if (!lead) {
+        skipped++;
+        continue;
+      }
+      // The id depends on the position in the file, so running the batch twice cannot double-deliver.
+      const out = await deliverEvent(deps, lead.id, item.type ?? 'reply', item.body, `sbx-batch-${i}`);
+      if (out.status === 'delivered') delivered++;
+      else failed++;
+    }
+    return { delivered, skipped, failed };
+  });
 
-    const providerEventId = parsed.data.provider_event_id ?? `sbx-${randomUUID()}`;
-    const raw = JSON.stringify({
-      provider: 'sandbox',
-      payload: {
-        provider_event_id: providerEventId,
-        type,
-        lead_id,
-        send_id: send?.id,
-        email: lead.email,
-        body,
-        occurred_at: new Date().toISOString(),
-      },
+  /** Clears lead data for a fresh demo run. Campaigns, sending domains, inboxes and prompt versions stay. */
+  app.post('/v1/sandbox/reset', async (_req, reply) => {
+    if (deps.config.mode !== 'sandbox') return reply.code(403).send({ error: 'sandbox_only' });
+    if (!deps.db) return reply.code(503).send({ error: 'db_unavailable' });
+    await deps.db.tx(async (db) => {
+      await db.query('TRUNCATE leads, companies, suppression, runs, llm_calls, dead_letters RESTART IDENTITY CASCADE');
+      await db.query(
+        "UPDATE settings SET value = 'false'::jsonb WHERE key IN ('llm_paused', 'kill_switch')",
+      );
     });
+    return { reset: true };
+  });
+
+  /** Submits the seed leads to WF-01 as one properly signed bulk request. */
+  app.post('/v1/sandbox/seed', async (_req, reply) => {
+    if (deps.config.mode !== 'sandbox') return reply.code(403).send({ error: 'sandbox_only' });
+    let raw: string;
+    try {
+      raw = JSON.stringify(JSON.parse(readFileSync(path.join(deps.config.sandboxDataDir, 'leads.json'), 'utf8')));
+    } catch {
+      return reply.code(404).send({ error: 'seed_file_missing' });
+    }
+    const leads = JSON.parse(raw) as unknown[];
     const timestamp = Math.floor(Date.now() / 1000).toString();
     try {
-      const res = await deps.webhookFetch(deps.config.eventsWebhookUrl, {
+      const res = await deps.webhookFetch(deps.config.intakeWebhookUrl, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -57,17 +143,15 @@ export function registerSandbox(app: FastifyInstance, deps: ResolvedDeps): void 
           'X-RG-Signature': signWebhook(deps.config.webhookSecret, raw, timestamp),
         },
         body: raw,
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(60_000),
       });
-      if (!res.ok)
-        return reply
-          .code(502)
-          .send({ delivered: false, status: res.status, provider_event_id: providerEventId });
-      return { delivered: true, provider_event_id: providerEventId };
+      if (!res.ok) return reply.code(502).send({ error: 'intake_rejected', status: res.status });
+      const body = (await res.json().catch(() => ({}))) as { results?: { status?: string }[] };
+      const count = (s: string): number => (body.results ?? []).filter((r) => r.status === s).length;
+      const invalid = (body.results ?? []).filter((r) => r.status !== 'accepted' && r.status !== 'duplicate').length;
+      return { submitted: leads.length, accepted: count('accepted'), duplicate: count('duplicate'), invalid };
     } catch (err) {
-      return reply
-        .code(502)
-        .send({ delivered: false, error: (err as Error).message, provider_event_id: providerEventId });
+      return reply.code(502).send({ error: 'intake_unreachable', message: (err as Error).message });
     }
   });
 }

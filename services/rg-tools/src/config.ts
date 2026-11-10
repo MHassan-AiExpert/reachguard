@@ -32,6 +32,9 @@ export interface Config {
   eventsWebhookUrl: string;
   /** Sandbox compresses the gap between sequence steps to this many minutes. */
   sandboxStepDelayMinutes: number;
+  intakeWebhookUrl: string;
+  sandboxDataDir: string;
+  dkimSelector: string;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -78,5 +81,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     smtpPort: Number(env.SMTP_PORT ?? 1025),
     eventsWebhookUrl: env.RG_EVENTS_WEBHOOK_URL ?? 'http://n8n:5678/webhook/rg/events',
     sandboxStepDelayMinutes: Number(env.SANDBOX_STEP_DELAY_MINUTES ?? 3),
+    intakeWebhookUrl: env.RG_INTAKE_WEBHOOK_URL ?? 'http://n8n:5678/webhook/rg/intake',
+    sandboxDataDir: env.SANDBOX_DATA_DIR ?? path.join(root, 'sandbox'),
+    dkimSelector: env.DKIM_SELECTOR ?? 'rg',
   };
 }
