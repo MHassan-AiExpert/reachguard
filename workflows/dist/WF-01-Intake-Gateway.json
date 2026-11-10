@@ -1,0 +1,636 @@
+{
+  "id": "rgwf01",
+  "name": "WF-01 Intake Gateway",
+  "nodes": [
+    {
+      "id": "03280200-5ace-00d6-227d-75fa4370b996",
+      "name": "Intake webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rg/intake",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "webhookId": "rg-intake",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "615e2292-4f35-08cd-08b3-8923017c43d3",
+      "name": "Extract request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst item = $input.first();\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst h = item.json.headers || {};\nreturn [{ json: {\n  raw_body: buf.toString('utf8'),\n  signature: h['x-rg-signature'] || '',\n  timestamp: h['x-rg-timestamp'] || '',\n} }];\n"
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "26b57895-3e7f-f813-8993-fbd90be0cf47",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/auth/verify-webhook",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ raw_body: $json.raw_body, signature: $json.signature, timestamp: $json.timestamp }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "2856cde1-305b-2d58-0170-6726558c8751",
+      "name": "Signature valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.valid === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "a6a88e52-75a5-25df-f804-7e27f68be9f7",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: \"invalid_signature\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "b37fd854-5e28-527e-a7aa-6bfd7ee4393c",
+      "name": "Parse body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst raw = $('Extract request').first().json.raw_body;\nlet body;\ntry { body = JSON.parse(raw); } catch { return [{ json: { ok: false, error: 'invalid_json' } }]; }\nconst bulk = Array.isArray(body);\nconst leads = bulk ? body : [body];\nif (leads.length === 0) return [{ json: { ok: false, error: 'empty_batch' } }];\nif (leads.length > 500) return [{ json: { ok: false, error: 'batch_too_large', max: 500 } }];\nreturn [{ json: { ok: true, bulk, leads } }];\n"
+      },
+      "position": [
+        1040,
+        160
+      ]
+    },
+    {
+      "id": "e20ce9bc-e787-eefd-91d2-5b787f96bfd2",
+      "name": "Body parsed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.ok === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "063581a8-c31b-3e11-f114-036095b046bc",
+      "name": "Respond 400 batch",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "ff74a70f-8f00-0d74-aa7a-4a28a6b9038c",
+      "name": "Split leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst { leads, bulk } = $input.first().json;\nreturn leads.map((lead, idx) => ({\n  json: { idx, bulk, lead: lead && typeof lead === 'object' && !Array.isArray(lead) ? lead : {} },\n}));\n"
+      },
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "289c33b4-36b7-e179-4c45-7fc760e80828",
+      "name": "Validate lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/contracts/validate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ schema: 'lead-intake', data: $json.lead }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "e6b671af-66b7-e6e7-9374-161548629655",
+      "name": "Mark validity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst src = $('Split leads').all();\nreturn $input.all().map((r, i) => {\n  const s = src[i].json;\n  const valid = r.json.valid === true;\n  const l = s.lead;\n  return { json: {\n    idx: s.idx, bulk: s.bulk, valid, errors: r.json.errors || [], lead: l,\n    email: valid ? String(l.email).trim().toLowerCase() : '',\n  } };\n});\n"
+      },
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "9eb47d0a-8e47-e4dc-8964-8a3cc5a86621",
+      "name": "Insert lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH c AS (\n  SELECT id FROM campaigns WHERE name = $1 AND status = 'active' AND $14::boolean\n),\nins AS (\n  INSERT INTO leads (campaign_id, idempotency_key, email, first_name, last_name, title, company_raw,\n                     website, country, source, source_ref, tags, raw_payload, status)\n  SELECT c.id,\n         COALESCE(NULLIF($2, ''), encode(digest(lower($1) || '|' || $3::text, 'sha256'), 'hex')),\n         $3::citext, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, NULLIF($8, ''),\n         NULLIF(upper($9), ''), NULLIF($10, ''), NULLIF($11, ''),\n         ARRAY(SELECT jsonb_array_elements_text($12::jsonb)), $13::jsonb, 'received'\n    FROM c\n   WHERE NOT EXISTS (SELECT 1 FROM leads WHERE email = $3::citext)\n  ON CONFLICT (idempotency_key) DO NOTHING\n  RETURNING id\n)\nSELECT $15::int AS idx,\n       (SELECT id FROM ins) AS inserted_id,\n       (SELECT id FROM leads WHERE email = $3::citext OR idempotency_key = NULLIF($2, '') LIMIT 1) AS existing_id,\n       EXISTS (SELECT 1 FROM c) AS campaign_found",
+        "options": {
+          "queryReplacement": "={{ [\n  String($json.lead.campaign ?? ''), String($json.lead.idempotency_key ?? ''), $json.email,\n  String($json.lead.first_name ?? ''), String($json.lead.last_name ?? ''), String($json.lead.title ?? ''),\n  String($json.lead.company ?? ''), String($json.lead.website ?? ''), String($json.lead.country ?? ''),\n  String($json.lead.source ?? ''), String($json.lead.source_ref ?? ''),\n  JSON.stringify(Array.isArray($json.lead.tags) ? $json.lead.tags : []),\n  JSON.stringify($json.lead), $json.valid, $json.idx\n] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "b9693ac1-9bdd-2fdb-831f-42f6b9b915e3",
+      "name": "Assemble response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst marks = $('Mark validity').all().map((i) => i.json);\nconst rows = new Map($input.all().map((i) => [Number(i.json.idx), i.json]));\nconst results = marks.map((m) => {\n  if (!m.valid) return { index: m.idx, status: 'invalid', errors: m.errors, http: 400 };\n  const r = rows.get(m.idx);\n  if (!r || !r.campaign_found) return { index: m.idx, status: 'unknown_campaign', http: 404 };\n  if (r.inserted_id) return { index: m.idx, status: 'accepted', lead_id: r.inserted_id, http: 202 };\n  return { index: m.idx, status: 'duplicate', lead_id: r.existing_id, http: 200 };\n});\nif (marks[0] && marks[0].bulk) {\n  return [{ json: { http: 200, body: { results: results.map(({ http, ...rest }) => rest) } } }];\n}\nconst r = results[0];\nconst body =\n  r.status === 'accepted' ? { lead_id: r.lead_id }\n  : r.status === 'duplicate' ? { status: 'duplicate', lead_id: r.lead_id }\n  : r.status === 'invalid' ? { error: 'invalid', errors: r.errors }\n  : { error: 'unknown_campaign' };\nreturn [{ json: { http: r.http, body } }];\n"
+      },
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "2b044b79-ce31-0e3d-f67c-0958f92764e7",
+      "name": "Route by status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-246a736f6e2e",
+                    "leftValue": "={{ $json.http }}",
+                    "rightValue": 202,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "202"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-246a736f6e2e",
+                    "leftValue": "={{ $json.http }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "200"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-246a736f6e2e",
+                    "leftValue": "={{ $json.http }}",
+                    "rightValue": 400,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "400"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-246a736f6e2e",
+                    "leftValue": "={{ $json.http }}",
+                    "rightValue": 404,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "404"
+            }
+          ]
+        }
+      },
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "82a25aec-ffd7-d4d6-25c9-82a3b56a0463",
+      "name": "Respond 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "c4af4dcf-6dfa-b548-ad8e-788f8e4b9bf8",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "position": [
+        3120,
+        160
+      ]
+    },
+    {
+      "id": "fa1af126-d05a-be59-12de-29c862fba490",
+      "name": "Respond 400 invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "position": [
+        3120,
+        320
+      ]
+    },
+    {
+      "id": "261afd0e-3226-acd6-7b77-10438340cdb7",
+      "name": "Respond 404",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "position": [
+        3120,
+        480
+      ]
+    }
+  ],
+  "connections": {
+    "Intake webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract request": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Signature valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid": {
+      "main": [
+        [
+          {
+            "node": "Parse body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse body": {
+      "main": [
+        [
+          {
+            "node": "Body parsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Body parsed": {
+      "main": [
+        [
+          {
+            "node": "Split leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split leads": {
+      "main": [
+        [
+          {
+            "node": "Validate lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate lead": {
+      "main": [
+        [
+          {
+            "node": "Mark validity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark validity": {
+      "main": [
+        [
+          {
+            "node": "Insert lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert lead": {
+      "main": [
+        [
+          {
+            "node": "Assemble response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble response": {
+      "main": [
+        [
+          {
+            "node": "Route by status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by status": {
+      "main": [
+        [
+          {
+            "node": "Respond 202",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 invalid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 404",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

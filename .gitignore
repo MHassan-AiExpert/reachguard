@@ -9,3 +9,4 @@ pgdata/
 *.log
 n8n-credentials*.json
 services/*/dist/
+!workflows/dist/

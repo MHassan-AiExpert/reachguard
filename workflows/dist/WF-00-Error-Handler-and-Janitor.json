@@ -1,0 +1,498 @@
+{
+  "id": "rgwf00",
+  "name": "WF-00 Error Handler and Janitor",
+  "nodes": [
+    {
+      "id": "db61ee4b-fcf8-e910-db35-d368dbc8930a",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "95cb40ef-2a7c-0690-e7a5-548d2127e0e2",
+      "name": "Record failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO runs (workflow, execution_id, status, ended_at, error)\n       VALUES ($1, $2, 'failed', now(), $3::jsonb)\n       RETURNING id",
+        "options": {
+          "queryReplacement": "={{ [$json.workflow.name, String($json.execution.id), JSON.stringify({ message: String($json.execution.error?.message ?? 'unknown error').slice(0, 500), node: $json.execution.lastNodeExecuted ?? null, url: $json.execution.url ?? null })] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "4e003dc8-4d4b-7a7e-9098-28d7507b291b",
+      "name": "Check alert dedupe",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         (SELECT count(*) FROM runs\n           WHERE workflow = $1 AND status = 'failed' AND id <> $3::uuid\n             AND error->>'message' = $2 AND started_at > now() - interval '15 minutes') = 0 AS should_alert,\n         (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id",
+        "options": {
+          "queryReplacement": "={{ [$('Error Trigger').first().json.workflow.name, String($('Error Trigger').first().json.execution.error?.message ?? 'unknown error').slice(0, 500), $json.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "e49e6f4a-f20f-3815-9d59-6804cc7f9037",
+      "name": "Alert needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.should_alert === true && !!$json.chat_id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "73bac952-ace8-74de-298b-79758ae1f6aa",
+      "name": "Alert workflow error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ \"ReachGuard error in \" + $('Error Trigger').first().json.workflow.name + \"\\nNode: \" + ($('Error Trigger').first().json.execution.lastNodeExecuted ?? \"n/a\") + \"\\n\" + String($('Error Trigger').first().json.execution.error?.message ?? \"unknown error\").slice(0, 300) }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "c19ba130-5b2c-44cb-afe0-cb7f79f8862a",
+      "name": "Janitor every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "5d5e2a1d-65cd-fb02-8b1c-ed5692178523",
+      "name": "Purge raw payloads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH x AS (\n         UPDATE leads SET raw_payload = NULL\n          WHERE raw_payload IS NOT NULL AND created_at < now() - make_interval(days => $1::int)\n         RETURNING 1)\n       SELECT count(*) AS purged FROM x",
+        "options": {
+          "queryReplacement": "={{ [90] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        160
+      ]
+    },
+    {
+      "id": "c97022c4-bcc3-bea7-ab30-ebada1cf09b6",
+      "name": "Close stuck runs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH x AS (\n         UPDATE runs\n            SET status = 'failed', ended_at = now(),\n                error = jsonb_build_object('message', 'stuck in started for over 30 minutes; closed by janitor')\n          WHERE status = 'started' AND started_at < now() - interval '30 minutes'\n         RETURNING 1)\n       SELECT count(*) AS closed FROM x",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        520,
+        160
+      ]
+    },
+    {
+      "id": "c4ae0b8f-2e39-32ef-b7cc-f8a6fb48e5f6",
+      "name": "Expire approvals",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH exp AS (\n         UPDATE approvals\n            SET decision = 'expired', decided_at = now(), decided_by = 'janitor', reason = 'no decision in time'\n          WHERE decision IS NULL AND requested_at < now() - make_interval(hours => $1::int)\n         RETURNING lead_id),\n       moved AS (\n         SELECT transition_lead(l.id, 'pending_approval', 'needs_review', 'approval expired', 'janitor')\n           FROM leads l\n          WHERE l.id IN (SELECT lead_id FROM exp) AND l.status = 'pending_approval')\n       SELECT (SELECT count(*) FROM exp) AS expired, (SELECT count(*) FROM moved) AS moved",
+        "options": {
+          "queryReplacement": "={{ [72] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        780,
+        160
+      ]
+    },
+    {
+      "id": "78a4f29a-f871-213e-ef48-f8647d64692a",
+      "name": "Remind approvals",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH x AS (\n         UPDATE approvals SET reminded_at = now()\n          WHERE decision IS NULL AND reminded_at IS NULL\n            AND requested_at < now() - make_interval(hours => $1::int)\n         RETURNING 1)\n       SELECT count(*) AS reminded FROM x",
+        "options": {
+          "queryReplacement": "={{ [24] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1040,
+        160
+      ]
+    },
+    {
+      "id": "7d6a31df-f07b-5651-78b2-c1300dfaa7f7",
+      "name": "Collect health",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         (SELECT count(*) FROM dead_letters WHERE status = 'open') AS dead_letters_open,\n         COALESCE((SELECT jsonb_object_agg(status, n) FROM (\n            SELECT status::text AS status, count(*) AS n FROM leads\n             WHERE status IN ('received','verified','researched','scored','drafted','qa_passed','approved')\n               AND created_at < now() - interval '1 hour'\n             GROUP BY status HAVING count(*) > 50) b), '{}'::jsonb) AS backlog,\n         COALESCE((SELECT (value #>> '{}')::timestamptz FROM settings WHERE key = 'janitor_last_alert'), 'epoch')\n           < now() - interval '60 minutes' AS throttle_open,\n         (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "c1d48692-bbe3-f38c-ed4e-861202386fc0",
+      "name": "Build janitor message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const h = $input.first().json;\nconst closed = $('Close stuck runs').first().json.closed;\nconst expired = $('Expire approvals').first().json.expired;\nconst reminded = $('Remind approvals').first().json.reminded;\nconst lines = [];\nif (Number(h.dead_letters_open) >= 5) lines.push('Open dead letters: ' + h.dead_letters_open);\nconst stages = Object.entries(h.backlog || {});\nif (stages.length) lines.push('Backlog over 1h: ' + stages.map(([s, n]) => s + '=' + n).join(', '));\nif (Number(reminded) > 0) lines.push('Approvals waiting past the reminder window: ' + reminded);\nif (Number(expired) > 0) lines.push('Approvals expired and moved to needs_review: ' + expired);\nif (Number(closed) > 0) lines.push('Stuck runs closed: ' + closed);\nreturn [{ json: { send: lines.length > 0 && h.throttle_open === true && !!h.chat_id, chat_id: h.chat_id, text: 'ReachGuard janitor\\n' + lines.join('\\n') } }];"
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "9a6233a3-ba5b-7a02-d481-de586f6ea89f",
+      "name": "Janitor alert needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.send === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "a6bcfa73-ebe0-fe56-0b0a-804d613da64c",
+      "name": "Alert janitor",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "a056dfde-df13-5164-3a29-d2ab84414c0f",
+      "name": "Mark janitor alerted",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO settings (key, value) VALUES ('janitor_last_alert', to_jsonb(now()::text))\n       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2340,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record failure": {
+      "main": [
+        [
+          {
+            "node": "Check alert dedupe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check alert dedupe": {
+      "main": [
+        [
+          {
+            "node": "Alert needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert needed": {
+      "main": [
+        [
+          {
+            "node": "Alert workflow error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Janitor every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Purge raw payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Purge raw payloads": {
+      "main": [
+        [
+          {
+            "node": "Close stuck runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close stuck runs": {
+      "main": [
+        [
+          {
+            "node": "Expire approvals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expire approvals": {
+      "main": [
+        [
+          {
+            "node": "Remind approvals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remind approvals": {
+      "main": [
+        [
+          {
+            "node": "Collect health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect health": {
+      "main": [
+        [
+          {
+            "node": "Build janitor message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build janitor message": {
+      "main": [
+        [
+          {
+            "node": "Janitor alert needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Janitor alert needed": {
+      "main": [
+        [
+          {
+            "node": "Alert janitor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert janitor": {
+      "main": [
+        [
+          {
+            "node": "Mark janitor alerted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}
