@@ -1,7 +1,7 @@
 # ReachGuard evaluation report
 
 - Date: 2026-11-10
-- Git SHA: 8e591e6
+- Git SHA: eca9e43
 - LLM mode (configured): replay
 - Models used: none (no LLM call was made in this run)
 - Target: rg-tools http://localhost:18080 (MODE=sandbox)
