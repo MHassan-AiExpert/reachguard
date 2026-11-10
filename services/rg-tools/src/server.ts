@@ -6,6 +6,7 @@ import { createLlmProvider, type LlmProvider } from './adapters/llm/index.js';
 import { createVerifier, type Verifier } from './adapters/verify/index.js';
 import { loadContracts, type ContractRegistry } from './lib/contracts.js';
 import { loadHygieneLists, type HygieneLists } from './lib/email.js';
+import type { SafeFetchDeps } from './lib/fetcher.js';
 import { createPgLlmStore, type LlmStore } from './lib/llm-store.js';
 import { loadPricing, type Pricing } from './lib/pricing.js';
 import { createPromptStore, type PromptStore } from './lib/prompts.js';
@@ -15,6 +16,8 @@ import { registerContracts } from './routes/contracts.js';
 import { registerHealth } from './routes/health.js';
 import { registerHygiene } from './routes/hygiene.js';
 import { registerLlm } from './routes/llm.js';
+import { registerResearch } from './routes/research.js';
+import { registerSandboxSites } from './routes/sandbox-sites.js';
 import { registerVerify } from './routes/verify.js';
 
 export interface Deps {
@@ -29,6 +32,7 @@ export interface Deps {
   llmStore?: LlmStore;
   pricing?: Pricing;
   prompts?: PromptStore;
+  fetchDeps?: SafeFetchDeps;
 }
 
 export interface ResolvedDeps extends Deps {
@@ -81,5 +85,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerHygiene(app, resolved);
   registerVerify(app, resolved);
   registerLlm(app, resolved);
+  registerResearch(app, resolved);
+  registerSandboxSites(app, resolved);
   return app;
 }
