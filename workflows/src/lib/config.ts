@@ -5,8 +5,21 @@ import YAML from 'yaml';
 export interface Defaults {
   hygiene: Record<string, unknown>;
   scoring: { weights: Record<string, number>; tier_a_min: number; tier_b_min: number };
-  qa: { max_revisions: number; spam_risk_max: number };
-  approval: { reminder_hours: number; expire_hours: number };
+  qa: {
+    max_revisions: number;
+    spam_risk_max: number;
+    step1_words: [number, number];
+    followup_words: [number, number];
+    subject_max_chars: number;
+    similarity_threshold: number;
+    banned_phrases: string[];
+  };
+  approval: {
+    require_for_tiers: string[];
+    require_below_judge_confidence: number;
+    reminder_hours: number;
+    expire_hours: number;
+  };
   sending: { jitter_minutes: number; sequence_delays_business_days: number[] };
   guardian: Record<string, number>;
   retention: { raw_payload_days: number; events_days: number };

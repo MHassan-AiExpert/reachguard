@@ -1,0 +1,940 @@
+{
+  "id": "rgwf05",
+  "name": "WF-05 Copywriter Agent",
+  "nodes": [
+    {
+      "id": "1d692fff-5215-b33f-242f-3b34d60b95dc",
+      "name": "Every minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "e05963d1-46cd-da31-c4dd-cf6959a2b16e",
+      "name": "Run on demand",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "9eeab03c-ac70-eff5-da1a-9d33016f4d41",
+      "name": "Gate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         COALESCE((SELECT value FROM settings WHERE key = 'kill_switch'), 'false'::jsonb) = 'true'::jsonb AS kill_switch,\n         COALESCE((SELECT value FROM settings WHERE key = 'llm_paused'), 'false'::jsonb) = 'true'::jsonb AS llm_paused",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "ef6f2528-9756-d7a2-650f-a60696c5f916",
+      "name": "Stage enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.kill_switch && !$json.llm_paused }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "5aab148b-16fc-be78-65cb-4087f91daa8c",
+      "name": "Start run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO runs (workflow, execution_id) VALUES ($1, $2) RETURNING id AS run_id",
+        "options": {
+          "queryReplacement": "={{ [\"WF-05 Copywriter Agent\", String($execution.id)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "3ac76296-9842-e653-f0a5-9b0ac069d806",
+      "name": "Claim leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM claim_leads('scored'::lead_status, 3, $1)",
+        "options": {
+          "queryReplacement": "={{ [\"WF-05 Copywriter Agent\" + \":\" + $execution.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "0ffa154e-5f18-5d7a-bce0-c843dfd095af",
+      "name": "Leads claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "78cb7d8b-16d5-60f0-96d1-43633a4c3df0",
+      "name": "Lead loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "be274e01-5cb0-0dc5-1044-57a265f9e9da",
+      "name": "Release lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT release_lead($1::uuid, $2) AS released",
+        "options": {
+          "queryReplacement": "={{ [$('Lead loop').first().json.id, (typeof $json.error === \"string\" ? $json.error : JSON.stringify($json.error ?? \"stage failed\")).slice(0, 500)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "c1f9eccd-2f58-9575-973b-3f54ec0b6939",
+      "name": "End run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE runs\n          SET status = 'succeeded', ended_at = now(),\n              latency_ms = (extract(epoch FROM now() - started_at) * 1000)::int\n        WHERE id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Start run').first().json.run_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "dee284dd-e3a8-06f4-7275-a3524183b605",
+      "name": "Init state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { lead: $json, flags: [...($json.flags || [])], regenerated: false, decision: null } }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "37d9efcc-0d85-75ea-d792-5081e157b040",
+      "name": "Load context",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.offer, c.sequence,\n  COALESCE((SELECT jsonb_agg(jsonb_build_object('id', e.id, 'fact_type', e.fact_type, 'claim', e.claim, 'snippet', e.snippet)\n                              ORDER BY e.confidence DESC)\n              FROM research_evidence e WHERE e.lead_id = $2::uuid), '[]'::jsonb) AS evidence,\n  (SELECT max(revision) FROM drafts WHERE lead_id = $2::uuid) AS last_revision,\n  (SELECT variant FROM drafts WHERE lead_id = $2::uuid ORDER BY revision DESC, created_at DESC LIMIT 1) AS last_variant,\n  COALESCE((SELECT jsonb_agg(issue)\n              FROM drafts dr, jsonb_array_elements(COALESCE(dr.qa_report->'issues', '[]'::jsonb)) AS issue\n             WHERE dr.lead_id = $2::uuid AND dr.status = 'qa_revise'\n               AND dr.revision = (SELECT max(revision) FROM drafts WHERE lead_id = $2::uuid)), '[]'::jsonb) AS revision_issues,\n  (SELECT count(DISTINCT dr.lead_id) FROM drafts dr JOIN leads l ON l.id = dr.lead_id WHERE l.campaign_id = $1::uuid) AS campaign_draft_leads\nFROM campaigns c WHERE c.id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.campaign_id, $json.lead.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2080,
+        160
+      ]
+    },
+    {
+      "id": "f0d5ad9e-847a-f21c-e6dc-492e6ff93410",
+      "name": "Context ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init state').first().json));\nconst r = $json;\nconst offer = r.offer || {};\nconst styles = Array.isArray(offer.variant_styles) && offer.variant_styles.length ? offer.variant_styles : ['direct'];\ns.offer = offer;\ns.evidence = r.evidence || [];\ns.steps = Array.isArray(r.sequence) && r.sequence.length ? r.sequence.length : 3;\ns.revision = r.last_revision === null || r.last_revision === undefined ? 0 : Number(r.last_revision) + 1;\ns.variant = s.revision > 0 && r.last_variant ? r.last_variant : styles[Number(r.campaign_draft_leads) % styles.length];\ns.revision_issues = r.revision_issues || [];\nif (s.evidence.length === 0) { s.decision = { to: 'needs_review', reason: 'no_evidence' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "ed964c38-bfd6-9cbf-ae9d-d609466b38d4",
+      "name": "Has evidence?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "cb53f868-a508-a8f4-8a38-7c8b9114d44f",
+      "name": "Write copy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/llm/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent: \"copywriter\", lead_id: $json.lead.id, variables: { sender_name: $json.offer.sender_name ?? \"\", sender_role: $json.offer.sender_role ?? \"\", offer_json: JSON.stringify($json.offer), variant_style: $json.variant, avoid_list: \"act now, limited time, guarantee, risk-free, 100% free, click here, no obligation, i hope this email finds you well, just circling back, dear sir\", steps: $json.steps, revision_issues: JSON.stringify($json.revision_issues), first_name: $json.lead.first_name ?? \"\", title: $json.lead.title ?? \"\", company_clean: $json.lead.company_clean ?? $json.lead.company_raw, evidence: $json.evidence } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "089b2b95-aceb-df92-f9b3-ee80a2d27775",
+      "name": "Copy ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Context ready').first().json));\nconst r = $json;\ns.copy = r.output;\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "2ddbfd7c-cc68-00b4-d8f6-4c84095e4be8",
+      "name": "Precheck input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: $json }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "06e2bf5b-831a-a5ae-12d1-edf5768ce020",
+      "name": "Precheck",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/copy/precheck",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead.id, copy: $json.copy, evidence_ids: $json.evidence.map((e) => e.id) }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "id": "688bea78-ac9d-1d89-0c58-8b19c0cc241b",
+      "name": "Similarity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/similarity",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ campaign_id: $(\"Precheck input\").first().json.lead.campaign_id, exclude_lead_id: $(\"Precheck input\").first().json.lead.id, shingle_hashes: $(\"Precheck\").first().json.shingle_hashes ?? [] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "id": "b9f54a7c-8004-f9e2-014e-256717e63b6e",
+      "name": "Check evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Precheck input').first().json));\nconst r = $json;\nconst pre = $('Precheck').first().json;\ns.violations = pre.violations || [];\ns.similar = r.exceeds_threshold === true;\ns.shingle_hashes = pre.shingle_hashes || [];\nconst bad = pre.ok !== true || s.similar;\ns.needs_regen = bad && !s.regenerated;\nif (s.needs_regen) {\n  s.revision_issues = [\n    ...s.violations.map((v) => ({ step: 1, type: 'other', severity: 'high', detail: String(v).slice(0, 300), fix: 'Fix: ' + String(v).slice(0, 280) })),\n    ...(s.similar ? [{ step: 1, type: 'other', severity: 'high', detail: 'Too similar to recent drafts in this campaign', fix: 'Use a different opening, angle and wording' }] : []),\n  ];\n} else if (bad) {\n  s.decision = { to: 'needs_review', reason: s.similar && s.violations.length === 0 ? 'copy_too_similar' : 'copy_precheck_failed' };\n} else {\n  s.decision = { to: 'drafted', reason: 'revision ' + s.revision + ' variant ' + s.variant };\n}\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        4160,
+        0
+      ]
+    },
+    {
+      "id": "fa215e57-01bb-3faf-8861-bceab46f4981",
+      "name": "Needs regeneration?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.needs_regen === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        4420,
+        0
+      ]
+    },
+    {
+      "id": "67e31eb3-112f-a45f-9fb2-c0af6125bee2",
+      "name": "Regenerate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/llm/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent: \"copywriter\", lead_id: $json.lead.id, variables: { sender_name: $json.offer.sender_name ?? \"\", sender_role: $json.offer.sender_role ?? \"\", offer_json: JSON.stringify($json.offer), variant_style: $json.variant, avoid_list: \"act now, limited time, guarantee, risk-free, 100% free, click here, no obligation, i hope this email finds you well, just circling back, dear sir\", steps: $json.steps, revision_issues: JSON.stringify($json.revision_issues), first_name: $json.lead.first_name ?? \"\", title: $json.lead.title ?? \"\", company_clean: $json.lead.company_clean ?? $json.lead.company_raw, evidence: $json.evidence } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        4680,
+        0
+      ]
+    },
+    {
+      "id": "76fdf084-51b5-938f-e9a2-de8fc38fe448",
+      "name": "Copy regenerated",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Check evaluate').first().json));\nconst r = $json;\ns.copy = r.output; s.regenerated = true; s.needs_regen = false;\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        4940,
+        0
+      ]
+    },
+    {
+      "id": "40d5f38b-fa5b-d687-200d-2b96ab482b50",
+      "name": "Insert drafts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ins AS (\n  INSERT INTO drafts (lead_id, step, variant, revision, subject, body, claims, evidence_ids, status, word_count, shingle_hashes)\n  SELECT $1::uuid, x.step, $4, $5::int, x.subject, x.body, x.claims,\n         ARRAY(SELECT jsonb_array_elements_text(x.evidence_ids))::uuid[], 'generated', x.word_count,\n         CASE WHEN x.step = 1 THEN ARRAY(SELECT jsonb_array_elements_text($7::jsonb))::bigint[] ELSE '{}'::bigint[] END\n    FROM jsonb_to_recordset($6::jsonb) AS x(step int, subject text, body text, claims jsonb, evidence_ids jsonb, word_count int)\n   WHERE $2::text = 'drafted'\n  RETURNING 1)\nSELECT transition_lead($1::uuid, 'scored'::lead_status, $2::lead_status, $3, 'WF-05') AS transitioned,\n       (SELECT count(*) FROM ins) AS drafts_written",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id, $json.decision.to, $json.decision.reason, $json.variant ?? \"\", $json.revision ?? 0, JSON.stringify(($json.copy?.sequence ?? []).map((x) => ({ step: x.step, subject: x.subject ?? null, body: x.body, claims: x.claims, evidence_ids: [...new Set(x.claims.map((c) => c.evidence_id))], word_count: x.body.trim().split(/\\s+/).length }))), JSON.stringify($json.shingle_hashes ?? [])] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Init state": {
+      "main": [
+        [
+          {
+            "node": "Load context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load context": {
+      "main": [
+        [
+          {
+            "node": "Context ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context ready": {
+      "main": [
+        [
+          {
+            "node": "Has evidence?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has evidence?": {
+      "main": [
+        [
+          {
+            "node": "Write copy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write copy": {
+      "main": [
+        [
+          {
+            "node": "Copy ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy ready": {
+      "main": [
+        [
+          {
+            "node": "Precheck input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precheck input": {
+      "main": [
+        [
+          {
+            "node": "Precheck",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precheck": {
+      "main": [
+        [
+          {
+            "node": "Similarity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Similarity": {
+      "main": [
+        [
+          {
+            "node": "Check evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check evaluate": {
+      "main": [
+        [
+          {
+            "node": "Needs regeneration?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs regeneration?": {
+      "main": [
+        [
+          {
+            "node": "Regenerate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regenerate": {
+      "main": [
+        [
+          {
+            "node": "Copy regenerated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy regenerated": {
+      "main": [
+        [
+          {
+            "node": "Precheck input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every minute": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run on demand": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate": {
+      "main": [
+        [
+          {
+            "node": "Stage enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage enabled": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Claim leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim leads": {
+      "main": [
+        [
+          {
+            "node": "Leads claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads claimed": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead loop": {
+      "main": [
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert drafts": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

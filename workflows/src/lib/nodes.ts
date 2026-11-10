@@ -132,6 +132,51 @@ export function switchNumber(name: string, left: string, values: number[]): Node
   };
 }
 
+/** One output per rule value, compared with string equality. */
+export function switchString(name: string, left: string, values: string[]): NodeSpec {
+  return {
+    name,
+    type: 'n8n-nodes-base.switch',
+    typeVersion: 3.2,
+    parameters: {
+      rules: {
+        values: values.map((v) => ({
+          conditions: {
+            options: COND_OPTS,
+            conditions: [condition(left, { type: 'string', operation: 'equals' }, v)],
+            combinator: 'and',
+          },
+          renameOutput: true,
+          outputKey: v,
+        })),
+      },
+    },
+  };
+}
+
+/** Answers a Telegram callback query so the button stops spinning. */
+export function telegramAnswer(name: string, queryId: string, text: string): NodeSpec {
+  return {
+    name,
+    type: 'n8n-nodes-base.telegram',
+    typeVersion: 1.2,
+    parameters: { resource: 'callback', operation: 'answerQuery', queryId: expr(queryId), additionalFields: { text } },
+    credentials: TG,
+    onError: 'continueRegularOutput',
+  };
+}
+
+export function telegramTrigger(name: string, updates: string[]): NodeSpec {
+  return {
+    name,
+    type: 'n8n-nodes-base.telegramTrigger',
+    typeVersion: 1.1,
+    parameters: { updates, additionalFields: {} },
+    credentials: TG,
+    webhookId: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+  };
+}
+
 export function executeWorkflow(name: string, workflowId: string): NodeSpec {
   return {
     name,
@@ -146,12 +191,25 @@ export function executeWorkflow(name: string, workflowId: string): NodeSpec {
 }
 
 /** Sends a Telegram message. Never fails the workflow: an alert that cannot be delivered must not break the stage. */
-export function telegram(name: string, chatId: string, text: string, extra: Record<string, unknown> = {}): NodeSpec {
+export function telegram(
+  name: string,
+  chatId: string,
+  text: string,
+  extra: Record<string, unknown> = {},
+  top: Record<string, unknown> = {},
+): NodeSpec {
   return {
     name,
     type: 'n8n-nodes-base.telegram',
     typeVersion: 1.2,
-    parameters: { resource: 'message', operation: 'sendMessage', chatId: expr(chatId), text: expr(text), additionalFields: { appendAttribution: false, ...extra } },
+    parameters: {
+      resource: 'message',
+      operation: 'sendMessage',
+      chatId: expr(chatId),
+      text: expr(text),
+      additionalFields: { appendAttribution: false, ...extra },
+      ...top,
+    },
     credentials: TG,
     onError: 'continueRegularOutput',
   };

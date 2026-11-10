@@ -16,6 +16,7 @@ import { loadQaRules, type QaRules } from './lib/precheck.js';
 import { loadScoringRules, type ScoringRules } from './lib/tier.js';
 import { createPromptStore, type PromptStore } from './lib/prompts.js';
 import { createMemoryCache, systemResolver, type DnsResolver, type MxCache } from './lib/mx.js';
+import { registerApprovals } from './routes/approvals.js';
 import { registerAuth } from './routes/auth.js';
 import { registerContracts } from './routes/contracts.js';
 import { registerCopy } from './routes/copy.js';
@@ -114,6 +115,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerHygiene(app, resolved);
   registerVerify(app, resolved);
   registerScore(app, resolved);
+  registerApprovals(app, resolved);
   registerLlm(app, resolved);
   registerResearch(app, resolved);
   registerSandboxSites(app, resolved);

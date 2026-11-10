@@ -1,0 +1,689 @@
+{
+  "id": "rgwf06",
+  "name": "WF-06 QA and Compliance Judge",
+  "nodes": [
+    {
+      "id": "4b866a17-94db-a7b9-6149-d04aced873df",
+      "name": "Every minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "7031424c-b47f-2bbb-1bf5-9befee03ecc4",
+      "name": "Run on demand",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "fb4b295d-a657-9fb4-ceeb-12a2240c840e",
+      "name": "Gate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         COALESCE((SELECT value FROM settings WHERE key = 'kill_switch'), 'false'::jsonb) = 'true'::jsonb AS kill_switch,\n         COALESCE((SELECT value FROM settings WHERE key = 'llm_paused'), 'false'::jsonb) = 'true'::jsonb AS llm_paused",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "77f9a703-9e67-ae78-1bba-d75288570bab",
+      "name": "Stage enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.kill_switch && !$json.llm_paused }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "54c63ac4-e8bf-da04-d197-529e572d2354",
+      "name": "Start run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO runs (workflow, execution_id) VALUES ($1, $2) RETURNING id AS run_id",
+        "options": {
+          "queryReplacement": "={{ [\"WF-06 QA and Compliance Judge\", String($execution.id)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "b8be9339-2435-bcb3-389e-a4e1a37eca2d",
+      "name": "Claim leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM claim_leads('drafted'::lead_status, 3, $1)",
+        "options": {
+          "queryReplacement": "={{ [\"WF-06 QA and Compliance Judge\" + \":\" + $execution.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "77b7713b-b870-a007-064e-1eec2a7aa1ba",
+      "name": "Leads claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "10d66371-afda-0221-e03d-bae16a28a234",
+      "name": "Lead loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "0f092c42-5f8c-84e7-8271-78e633013e9f",
+      "name": "Release lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT release_lead($1::uuid, $2) AS released",
+        "options": {
+          "queryReplacement": "={{ [$('Lead loop').first().json.id, (typeof $json.error === \"string\" ? $json.error : JSON.stringify($json.error ?? \"stage failed\")).slice(0, 500)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "c039e9e8-92af-4885-02c5-c2e8297ab057",
+      "name": "End run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE runs\n          SET status = 'succeeded', ended_at = now(),\n              latency_ms = (extract(epoch FROM now() - started_at) * 1000)::int\n        WHERE id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Start run').first().json.run_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "a627ec9c-00ba-1be4-931f-3489c2462e57",
+      "name": "Init state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { lead: $json, flags: [...($json.flags || [])], decision: null } }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "b151fa97-3326-5e1c-f1fd-73507034cb9f",
+      "name": "Load drafts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH r AS (SELECT max(revision) AS rev FROM drafts WHERE lead_id = $1::uuid)\nSELECT (SELECT rev FROM r) AS revision,\n  (SELECT min(variant) FROM drafts WHERE lead_id = $1::uuid AND revision = (SELECT rev FROM r)) AS variant,\n  COALESCE((SELECT jsonb_agg(jsonb_build_object('step', dr.step, 'subject', dr.subject, 'body', dr.body, 'claims', dr.claims) ORDER BY dr.step)\n              FROM drafts dr WHERE dr.lead_id = $1::uuid AND dr.revision = (SELECT rev FROM r)), '[]'::jsonb) AS drafts,\n  COALESCE((SELECT jsonb_agg(jsonb_build_object('id', e.id, 'claim', e.claim, 'snippet', e.snippet))\n              FROM research_evidence e WHERE e.lead_id = $1::uuid), '[]'::jsonb) AS evidence",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2080,
+        160
+      ]
+    },
+    {
+      "id": "f81da3d9-837f-affc-45ca-0f6b05f5fc77",
+      "name": "Draft copy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init state').first().json));\nconst r = $json;\ns.revision = Number(r.revision ?? 0);\ns.evidence = r.evidence || [];\ns.copy = { variant_label: r.variant || 'draft', sequence: r.drafts || [] };\nif (s.copy.sequence.length === 0) { s.decision = { to: 'needs_review', reason: 'no_drafts' }; s.draft_status = 'qa_reject'; s.report = {}; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "62a7e601-2506-bb69-2aa9-76ab0a6d991f",
+      "name": "Has drafts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "2bdf5837-ba2f-873c-5894-609a0c60b828",
+      "name": "Precheck",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/copy/precheck",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead.id, copy: $json.copy, evidence_ids: $json.evidence.map((e) => e.id) }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "3b57775c-95cf-98ef-4578-c57b633f1cd6",
+      "name": "QA judge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/llm/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent: \"qa-judge\", lead_id: $(\"Draft copy\").first().json.lead.id, variables: { spam_risk_max: 0.35, rules_json: \"{\\\"step1_words\\\":[50,110],\\\"followup_words\\\":[30,80],\\\"subject_max_chars\\\":60,\\\"spam_risk_max\\\":0.35}\", evidence: $(\"Draft copy\").first().json.evidence, drafts_json: JSON.stringify($(\"Draft copy\").first().json.copy.sequence) } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "202b52aa-7f83-bea3-b444-032c0e4f919d",
+      "name": "Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Draft copy').first().json));\nconst r = $json;\nfunction verdict(j, pre, drafts, revision) {\n  const issues = [...(j.issues || [])];\n  for (const v of (pre.violations || [])) {\n    issues.push({ step: 1, type: 'other', severity: 'high', detail: String(v).slice(0, 300), fix: 'Fix: ' + String(v).slice(0, 280) });\n  }\n  if (!drafts.length) return { to: 'needs_review', reason: 'no_drafts', draft_status: 'qa_reject', issues };\n  const checks = j.claim_checks || [];\n  let unsupported = checks.some((c) => c.supported === false);\n  for (const dr of drafts) {\n    (dr.claims || []).forEach((_, i) => {\n      const c = checks.find((x) => x.step === dr.step && x.claim_index === i);\n      if (!c || c.supported !== true) unsupported = true;\n    });\n  }\n  const high = issues.some((i) => i.severity === 'high');\n  const spam = j.spam_risk > 0.35;\n  if (unsupported && !issues.some((i) => i.type === 'ungrounded_claim')) {\n    issues.push({ step: 1, type: 'ungrounded_claim', severity: 'high', detail: 'A claim is not supported by the cited evidence', fix: 'Remove or rewrite unsupported claims using only the evidence' });\n  }\n  if (spam && !issues.some((i) => i.type === 'spam_language')) {\n    issues.push({ step: 1, type: 'spam_language', severity: 'high', detail: 'Spam risk above the limit', fix: 'Remove hype, pressure and promotional wording' });\n  }\n  if (j.verdict === 'pass' && !unsupported && !high && !spam && pre.ok === true) {\n    return { to: 'qa_passed', reason: 'passed qa', draft_status: 'qa_pass', issues };\n  }\n  if (j.verdict === 'reject') return { to: 'needs_review', reason: 'qa_rejected', draft_status: 'qa_reject', issues };\n  if (revision < 2) return { to: 'scored', reason: 'qa_revise', draft_status: 'qa_revise', issues };\n  return { to: 'needs_review', reason: 'qa_exhausted', draft_status: 'qa_reject', issues };\n}\nconst j = r.output;\nconst pre = $('Precheck').first().json;\nconst v = verdict(j, pre, s.copy.sequence, s.revision);\ns.decision = { to: v.to, reason: v.reason };\ns.draft_status = v.draft_status;\ns.report = { verdict: j.verdict, confidence: j.confidence, spam_risk: j.spam_risk, claim_checks: j.claim_checks, issues: v.issues, precheck_violations: pre.violations || [], revision: s.revision, final: v.to };\ns.spam_risk = j.spam_risk;\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "6f156ea5-934b-9d74-e92f-14e0d7d862ef",
+      "name": "Store verdict",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upd AS (\n  UPDATE drafts SET status = $4, qa_report = $5::jsonb, spam_risk = $6::numeric\n   WHERE lead_id = $1::uuid AND revision = $7::int\n  RETURNING 1)\nSELECT transition_lead($1::uuid, 'drafted'::lead_status, $2::lead_status, $3, 'WF-06') AS transitioned,\n       (SELECT count(*) FROM upd) AS drafts_updated",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id, $json.decision.to, $json.decision.reason, $json.draft_status ?? \"qa_reject\", JSON.stringify($json.report ?? {}), $json.spam_risk ?? null, $json.revision ?? 0] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Init state": {
+      "main": [
+        [
+          {
+            "node": "Load drafts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load drafts": {
+      "main": [
+        [
+          {
+            "node": "Draft copy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft copy": {
+      "main": [
+        [
+          {
+            "node": "Has drafts?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has drafts?": {
+      "main": [
+        [
+          {
+            "node": "Precheck",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precheck": {
+      "main": [
+        [
+          {
+            "node": "QA judge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA judge": {
+      "main": [
+        [
+          {
+            "node": "Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verdict": {
+      "main": [
+        [
+          {
+            "node": "Store verdict",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every minute": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run on demand": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate": {
+      "main": [
+        [
+          {
+            "node": "Stage enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage enabled": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Claim leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim leads": {
+      "main": [
+        [
+          {
+            "node": "Leads claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads claimed": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead loop": {
+      "main": [
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store verdict": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

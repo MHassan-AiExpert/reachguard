@@ -1,0 +1,836 @@
+{
+  "id": "rgwf07a",
+  "name": "WF-07a Approval Dispatcher",
+  "nodes": [
+    {
+      "id": "f723ddf8-1f4c-6856-edac-86688c6049d2",
+      "name": "Every minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "8aeb38f9-1a72-d225-6d07-00916eeccab3",
+      "name": "Run on demand",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "af0a26d3-dd4e-1954-3891-cb00c51a2248",
+      "name": "Gate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         COALESCE((SELECT value FROM settings WHERE key = 'kill_switch'), 'false'::jsonb) = 'true'::jsonb AS kill_switch,\n         COALESCE((SELECT value FROM settings WHERE key = 'llm_paused'), 'false'::jsonb) = 'true'::jsonb AS llm_paused",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "058c8901-4f3c-e095-4bc6-31d86d43fc07",
+      "name": "Stage enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.kill_switch }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "ecda86a1-cdc4-3c9c-e106-4a690eeff90d",
+      "name": "Start run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO runs (workflow, execution_id) VALUES ($1, $2) RETURNING id AS run_id",
+        "options": {
+          "queryReplacement": "={{ [\"WF-07a Approval Dispatcher\", String($execution.id)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "6203eee2-1d7c-f9a2-07fc-9e0c84ef563c",
+      "name": "Claim leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM claim_leads('qa_passed'::lead_status, 5, $1)",
+        "options": {
+          "queryReplacement": "={{ [\"WF-07a Approval Dispatcher\" + \":\" + $execution.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "f19eefc3-3dc2-1121-0dc2-155345af848d",
+      "name": "Leads claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "0c127418-3024-47b3-8b14-4b2dfe1ab4bd",
+      "name": "Lead loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "8650c603-717c-8a73-92a7-7b101ae607f5",
+      "name": "Release lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT release_lead($1::uuid, $2) AS released",
+        "options": {
+          "queryReplacement": "={{ [$('Lead loop').first().json.id, (typeof $json.error === \"string\" ? $json.error : JSON.stringify($json.error ?? \"stage failed\")).slice(0, 500)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "d15071bf-8825-82b4-056e-85f459081bec",
+      "name": "End run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE runs\n          SET status = 'succeeded', ended_at = now(),\n              latency_ms = (extract(epoch FROM now() - started_at) * 1000)::int\n        WHERE id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Start run').first().json.run_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "23ed8df8-ac86-b5b8-78ab-10962a7062fd",
+      "name": "Init state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { lead: $json, flags: [...($json.flags || [])] } }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "f1a94d3e-3403-cddd-0910-a9c1e0c5b308",
+      "name": "Load approval inputs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.approval_policy,\n  (SELECT dr.qa_report->>'confidence' FROM drafts dr\n    WHERE dr.lead_id = $2::uuid AND dr.status = 'qa_pass'\n    ORDER BY dr.revision DESC, dr.step LIMIT 1)::numeric AS confidence,\n  COALESCE((SELECT jsonb_agg(jsonb_build_object('step', dr.step, 'subject', dr.subject, 'body', dr.body) ORDER BY dr.step)\n              FROM drafts dr WHERE dr.lead_id = $2::uuid AND dr.status = 'qa_pass'\n               AND dr.revision = (SELECT max(revision) FROM drafts WHERE lead_id = $2::uuid AND status = 'qa_pass')), '[]'::jsonb) AS drafts,\n  COALESCE((SELECT jsonb_agg(jsonb_build_object('claim', e.claim, 'url', e.source_url) ORDER BY e.confidence DESC)\n              FROM research_evidence e WHERE e.lead_id = $2::uuid), '[]'::jsonb) AS evidence,\n  (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_approver_chat_ids') AS approver_chat_ids\nFROM campaigns c WHERE c.id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.campaign_id, $json.lead.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2080,
+        160
+      ]
+    },
+    {
+      "id": "908c7cdd-04ba-0da0-3eff-0d2b8a13dbb5",
+      "name": "Policy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init state').first().json));\nconst r = $json;\nfunction needsApproval(i) {\n  const reasons = [];\n  if ((i.require_for_tiers || []).includes(i.tier)) reasons.push('tier_' + i.tier);\n  if (!(Number(i.confidence) >= i.below)) reasons.push('low_judge_confidence');\n  if ((i.flags || []).includes('catch_all')) reasons.push('catch_all');\n  return { require: reasons.length > 0, reasons };\n}\nconst policy = r.approval_policy || {};\nconst p = needsApproval({\n  tier: s.lead.tier,\n  flags: s.lead.flags || [],\n  confidence: r.confidence,\n  require_for_tiers: policy.require_for_tiers || [\"A\"],\n  below: 0.7,\n});\ns.require = p.require;\ns.reasons = p.reasons;\ns.drafts = r.drafts || [];\ns.evidence = r.evidence || [];\ns.chat_id = String(r.approver_chat_ids || '').split(',').map((x) => x.trim()).filter(Boolean)[0] || '';\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "9c7ae66f-7a50-45f4-fd12-8fc6889c5ec2",
+      "name": "Approval required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.require === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "4661f623-583e-26ac-da74-0be207534302",
+      "name": "Auto approve",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH a AS (\n  INSERT INTO approvals (lead_id, channel, decision, decided_at, decided_by, reason)\n  VALUES ($1::uuid, 'policy', 'approved', now(), 'auto_policy', 'auto_policy') RETURNING id),\ndr AS (UPDATE drafts SET status = 'approved' WHERE lead_id = $1::uuid AND status = 'qa_pass' RETURNING 1)\nSELECT transition_lead($1::uuid, 'qa_passed'::lead_status, 'approved'::lead_status, 'auto_policy', 'WF-07a') AS transitioned,\n       (SELECT count(*) FROM dr) AS drafts_approved",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "2f59c290-9612-4092-a2a6-2ef227a0cf3b",
+      "name": "Mint approval id",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT gen_random_uuid() AS approval_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        160
+      ]
+    },
+    {
+      "id": "71f5928d-043c-bc7e-8e1b-058c52fba544",
+      "name": "Sign callbacks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/approvals/sign",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ approval_id: $json.approval_id }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "968af036-d3e4-14df-3c90-f752cebd519a",
+      "name": "Create approval",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH a AS (\n  INSERT INTO approvals (id, lead_id, channel) VALUES ($1::uuid, $2::uuid, 'telegram') RETURNING id)\nSELECT transition_lead($2::uuid, 'qa_passed'::lead_status, 'pending_approval'::lead_status, $3, 'WF-07a') AS transitioned,\n       (SELECT id FROM a) AS approval_id",
+        "options": {
+          "queryReplacement": "={{ [$(\"Mint approval id\").first().json.approval_id, $(\"Policy\").first().json.lead.id, \"approval requested: \" + $(\"Policy\").first().json.reasons.join(\",\")] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "0e551844-b15b-2781-a7de-43150017191e",
+      "name": "Compose message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = $('Policy').first().json;\nconst sig = $('Sign callbacks').first().json;\nconst l = s.lead;\nconst head = 'Approval needed: tier ' + l.tier + ', score ' + l.score + '\\n' +\n  [l.full_name || l.first_name, l.title].filter(Boolean).join(', ') + ' at ' + (l.company_clean || l.company_raw) + '\\n' +\n  'Reasons: ' + s.reasons.join(', ') + '\\n\\nEvidence:\\n' +\n  s.evidence.slice(0, 5).map((e) => '- ' + e.claim + ' (' + e.url + ')').join('\\n') + '\\n';\nconst body = s.drafts.map((x) => '\\nStep ' + x.step + (x.subject ? ' | Subject: ' + x.subject : '') + '\\n' + x.body).join('\\n');\nconst text = (head + body).slice(0, 3900);\nreturn [{ json: { chat_id: s.chat_id, text, approve: sig.approve, edit: sig.edit, reject: sig.reject } }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "id": "f6edefc4-928b-5c51-e7c8-c980230b7958",
+      "name": "Has recipient?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.chat_id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "id": "78d91559-9c1c-8b02-c74a-f2e7d8ce7cc3",
+      "name": "Send for approval",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "Approve",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.approve }}"
+                    }
+                  },
+                  {
+                    "text": "Edit",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.edit }}"
+                    }
+                  },
+                  {
+                    "text": "Reject",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.reject }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        4160,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Init state": {
+      "main": [
+        [
+          {
+            "node": "Load approval inputs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load approval inputs": {
+      "main": [
+        [
+          {
+            "node": "Policy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Policy": {
+      "main": [
+        [
+          {
+            "node": "Approval required?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval required?": {
+      "main": [
+        [
+          {
+            "node": "Mint approval id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auto approve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mint approval id": {
+      "main": [
+        [
+          {
+            "node": "Sign callbacks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign callbacks": {
+      "main": [
+        [
+          {
+            "node": "Create approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create approval": {
+      "main": [
+        [
+          {
+            "node": "Compose message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose message": {
+      "main": [
+        [
+          {
+            "node": "Has recipient?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has recipient?": {
+      "main": [
+        [
+          {
+            "node": "Send for approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every minute": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run on demand": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate": {
+      "main": [
+        [
+          {
+            "node": "Stage enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage enabled": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Claim leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim leads": {
+      "main": [
+        [
+          {
+            "node": "Leads claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads claimed": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead loop": {
+      "main": [
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto approve": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send for approval": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

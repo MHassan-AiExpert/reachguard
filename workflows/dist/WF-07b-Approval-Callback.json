@@ -1,0 +1,1053 @@
+{
+  "id": "rgwf07b",
+  "name": "WF-07b Approval Callback",
+  "nodes": [
+    {
+      "id": "98087f27-050f-8dc4-5603-25e81e3dec20",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "updates": [
+          "callback_query",
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "webhookId": "telegram-trigger",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "98bcb0e0-e3b7-49e2-ffcc-c11f796c854d",
+      "name": "Load allowlist",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_approver_chat_ids') AS ids",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "864d4331-ce5e-57b6-1e03-82e6b46f1cd0",
+      "name": "Classify update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "function classify(u, allowed) {\n  const ok = (id) => allowed.map(String).includes(String(id));\n  if (u.callback_query) {\n    const q = u.callback_query;\n    const chat = q.message && q.message.chat ? q.message.chat.id : null;\n    if (chat === null || !ok(chat)) return { kind: 'unauthorized' };\n    return { kind: 'callback', callback_id: q.id, data: q.data || '', chat_id: String(chat), decided_by: String((q.from && (q.from.username || q.from.id)) || chat) };\n  }\n  const m = u.message;\n  if (!m || !m.chat) return { kind: 'ignore' };\n  if (!ok(m.chat.id)) return { kind: 'unauthorized' };\n  const replied = m.reply_to_message && m.reply_to_message.text;\n  const found = replied ? /approval:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i.exec(replied) : null;\n  if (!found || typeof m.text !== 'string') return { kind: 'ignore' };\n  let subject = null;\n  let body = m.text.trim();\n  const sm = /^subject:\\s*(.*)\\n+([\\s\\S]*)$/i.exec(body);\n  if (sm) { subject = sm[1].trim(); body = sm[2].trim(); }\n  return { kind: 'edit_reply', approval_id: found[1].toLowerCase(), subject, body, chat_id: String(m.chat.id), decided_by: String((m.from && (m.from.username || m.from.id)) || m.chat.id) };\n}\nconst update = $('Telegram Trigger').first().json;\nconst allowed = String($json.ids || '').split(',').map((x) => x.trim()).filter(Boolean);\nreturn [{ json: classify(update, allowed) }];"
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "7426799a-9500-60a3-5a2a-c52bbc12816d",
+      "name": "Is callback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.kind === 'callback' }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "d5069fce-ff8c-01cc-7c3c-343df2556693",
+      "name": "Is edit reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.kind === 'edit_reply' }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "f8d04e69-6dc1-fbb3-3afb-767f876b84e5",
+      "name": "Ignore update",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "92ba7c6d-7c9d-54cb-2241-845d78a7a86a",
+      "name": "Verify callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/approvals/verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ data: $json.data }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1040,
+        160
+      ]
+    },
+    {
+      "id": "ce76c324-aa07-8d5a-9fcc-922da2a16ed4",
+      "name": "Callback valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.valid === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        160
+      ]
+    },
+    {
+      "id": "ec7d7223-65e1-327f-bce2-ec73b39383d8",
+      "name": "Answer invalid",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Classify update').first().json.callback_id }}",
+        "additionalFields": {
+          "text": "Invalid or expired button"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "e9bcc0b5-8fbb-6a1b-293c-25a8650529ca",
+      "name": "Load approval",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.id, a.decision, l.status\n  FROM approvals a JOIN leads l ON l.id = a.lead_id WHERE a.id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ [$json.approval_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "fce539f7-b5c4-647a-558b-b98192c72125",
+      "name": "Still pending?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.decision === null && $json.status === 'pending_approval' }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "b4e343c3-a711-d6de-30bb-b3a9841366ec",
+      "name": "Answer already decided",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Classify update').first().json.callback_id }}",
+        "additionalFields": {
+          "text": "Already decided"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "cc0f8afe-7b56-efbf-2db8-f79a0a5bbb8b",
+      "name": "Route action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827566572",
+                    "leftValue": "={{ $('Verify callback').first().json.action }}",
+                    "rightValue": "approve",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "approve"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827566572",
+                    "leftValue": "={{ $('Verify callback').first().json.action }}",
+                    "rightValue": "edit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "edit"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827566572",
+                    "leftValue": "={{ $('Verify callback').first().json.action }}",
+                    "rightValue": "reject",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reject"
+            }
+          ]
+        }
+      },
+      "position": [
+        2080,
+        160
+      ]
+    },
+    {
+      "id": "00446130-1cc7-a4b4-22d5-eaca4f00e3dc",
+      "name": "Approve",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH a AS (\n  UPDATE approvals SET decision = 'approved', decided_at = now(), decided_by = $2\n   WHERE id = $1::uuid AND decision IS NULL RETURNING lead_id),\ndr AS (UPDATE drafts SET status = 'approved' WHERE lead_id = (SELECT lead_id FROM a) AND status = 'qa_pass' RETURNING 1)\nSELECT transition_lead(a.lead_id, 'pending_approval'::lead_status, 'approved'::lead_status, 'approved by ' || $2, 'WF-07b') AS transitioned,\n       (SELECT count(*) FROM dr) AS drafts_approved\n  FROM a",
+        "options": {
+          "queryReplacement": "={{ [$('Verify callback').first().json.approval_id, $('Classify update').first().json.decided_by] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "1ab4760f-2d63-5182-dac4-97bf79b4727a",
+      "name": "Reject",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH a AS (\n  UPDATE approvals SET decision = 'rejected', decided_at = now(), decided_by = $2\n   WHERE id = $1::uuid AND decision IS NULL RETURNING lead_id),\ndr AS (UPDATE drafts SET status = 'rejected' WHERE lead_id = (SELECT lead_id FROM a) AND status = 'qa_pass' RETURNING 1)\nSELECT transition_lead(a.lead_id, 'pending_approval'::lead_status, 'rejected'::lead_status, 'rejected by ' || $2, 'WF-07b') AS transitioned,\n       (SELECT count(*) FROM dr) AS drafts_rejected\n  FROM a",
+        "options": {
+          "queryReplacement": "={{ [$('Verify callback').first().json.approval_id, $('Classify update').first().json.decided_by] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2340,
+        160
+      ]
+    },
+    {
+      "id": "ff54e95b-efd6-1bce-a4cf-75b584c55b78",
+      "name": "Request edit",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Classify update').first().json.chat_id }}",
+        "text": "={{ \"Edit approval:\" + $('Verify callback').first().json.approval_id + \"\\nReply to THIS message with the new text for step 1. Optionally start with \\\"Subject: ...\\\" then a blank line, then the body.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        },
+        "replyMarkup": "forceReply",
+        "forceReply": {
+          "force_reply": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2340,
+        320
+      ]
+    },
+    {
+      "id": "54bea1ac-db29-64bf-897e-4edf64cb2bcf",
+      "name": "Answer approved",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Classify update').first().json.callback_id }}",
+        "additionalFields": {
+          "text": "Approved"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "7792e5c4-e8ca-2c6d-855f-da90b1cd93dd",
+      "name": "Answer rejected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Classify update').first().json.callback_id }}",
+        "additionalFields": {
+          "text": "Rejected"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2600,
+        160
+      ]
+    },
+    {
+      "id": "60d7072c-2bd5-fbba-e211-0d5e650b3b17",
+      "name": "Answer edit",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Classify update').first().json.callback_id }}",
+        "additionalFields": {
+          "text": "Send the replacement text as a reply"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2600,
+        320
+      ]
+    },
+    {
+      "id": "e25544b9-3a35-662a-69f7-e3a7bd1d728d",
+      "name": "Load edit context",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.id, a.lead_id, a.decision, l.status,\n  COALESCE((SELECT max(dr.revision) FROM drafts dr WHERE dr.lead_id = a.lead_id), 0) AS revision,\n  COALESCE((SELECT jsonb_agg(jsonb_build_object('step', dr.step, 'subject', dr.subject, 'body', dr.body, 'claims', dr.claims) ORDER BY dr.step)\n              FROM drafts dr WHERE dr.lead_id = a.lead_id AND dr.status = 'qa_pass'\n               AND dr.revision = (SELECT max(revision) FROM drafts WHERE lead_id = a.lead_id AND status = 'qa_pass')), '[]'::jsonb) AS drafts\n  FROM approvals a JOIN leads l ON l.id = a.lead_id WHERE a.id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ [$json.approval_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1300,
+        320
+      ]
+    },
+    {
+      "id": "4f1022b4-ea0a-6361-df26-245aaf1ce785",
+      "name": "Edit pending?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.decision === null && $json.status === 'pending_approval' && Array.isArray($json.drafts) && $json.drafts.length > 0 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1560,
+        320
+      ]
+    },
+    {
+      "id": "309bda33-53ed-864b-d1e0-ef3a55cf758e",
+      "name": "Answer edit closed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Classify update').first().json.chat_id }}",
+        "text": "={{ \"That approval is no longer waiting for an edit.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        1820,
+        160
+      ]
+    },
+    {
+      "id": "8c61f141-02b3-1ed5-afd9-44ff81e58c50",
+      "name": "Build edited copy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const u = $('Classify update').first().json;\nconst c = $json;\nconst sequence = c.drafts.map((x) => x.step === 1\n  ? { step: 1, subject: u.subject !== null ? u.subject : x.subject, body: u.body, claims: [] }\n  : { step: x.step, subject: x.subject, body: x.body, claims: x.claims });\nreturn [{ json: { lead_id: c.lead_id, approval_id: c.id, revision: c.revision, copy: { variant_label: 'human-edit', sequence } } }];"
+      },
+      "position": [
+        1820,
+        320
+      ]
+    },
+    {
+      "id": "9cc54386-2e00-14d8-610e-83927536002b",
+      "name": "Precheck edit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/copy/precheck",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id, copy: $json.copy }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        2080,
+        320
+      ]
+    },
+    {
+      "id": "8428e95c-1922-ac48-81ca-2b43327c9ef1",
+      "name": "Edit ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.ok === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2340,
+        480
+      ]
+    },
+    {
+      "id": "f97646de-f928-792e-8176-a0456e3e5b24",
+      "name": "Send violations",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Classify update').first().json.chat_id }}",
+        "text": "={{ \"Your edit was not saved:\\n- \" + ($json.violations || []).join(\"\\n- \") + \"\\nReply again with a corrected text.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2600,
+        480
+      ]
+    },
+    {
+      "id": "f0a58c6d-afb5-3de0-4f99-70b6c2310c6c",
+      "name": "Save edit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH a AS (\n  UPDATE approvals SET decision = 'edited_approved', decided_at = now(), decided_by = $2, reason = 'human edit'\n   WHERE id = $1::uuid AND decision IS NULL RETURNING lead_id),\nins AS (\n  INSERT INTO drafts (lead_id, step, variant, revision, subject, body, claims, evidence_ids, status, word_count, shingle_hashes)\n  SELECT a.lead_id, x.step, 'human-edit', $3::int + 1, x.subject, x.body, x.claims,\n         ARRAY(SELECT jsonb_array_elements_text(x.evidence_ids))::uuid[], 'approved', x.word_count,\n         CASE WHEN x.step = 1 THEN ARRAY(SELECT jsonb_array_elements_text($5::jsonb))::bigint[] ELSE '{}'::bigint[] END\n    FROM a, jsonb_to_recordset($4::jsonb) AS x(step int, subject text, body text, claims jsonb, evidence_ids jsonb, word_count int)\n  RETURNING 1)\nSELECT transition_lead(a.lead_id, 'pending_approval'::lead_status, 'approved'::lead_status, 'edited and approved by ' || $2, 'WF-07b') AS transitioned,\n       (SELECT count(*) FROM ins) AS drafts_written\n  FROM a",
+        "options": {
+          "queryReplacement": "={{ [$('Build edited copy').first().json.approval_id, $('Classify update').first().json.decided_by, $('Build edited copy').first().json.revision, JSON.stringify($('Build edited copy').first().json.copy.sequence.map((x) => ({ step: x.step, subject: x.subject ?? null, body: x.body, claims: x.claims, evidence_ids: [...new Set(x.claims.map((c) => c.evidence_id))], word_count: x.body.trim().split(/\\s+/).length }))), JSON.stringify($('Precheck edit').first().json.shingle_hashes ?? [])] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2600,
+        640
+      ]
+    },
+    {
+      "id": "9a184817-12a5-d0ca-3211-89651e9eed7d",
+      "name": "Confirm edit",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Classify update').first().json.chat_id }}",
+        "text": "={{ \"Edit saved and approved.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        2860,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Load allowlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load allowlist": {
+      "main": [
+        [
+          {
+            "node": "Classify update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify update": {
+      "main": [
+        [
+          {
+            "node": "Is callback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is callback?": {
+      "main": [
+        [
+          {
+            "node": "Verify callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is edit reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is edit reply?": {
+      "main": [
+        [
+          {
+            "node": "Load edit context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignore update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify callback": {
+      "main": [
+        [
+          {
+            "node": "Callback valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback valid?": {
+      "main": [
+        [
+          {
+            "node": "Load approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load approval": {
+      "main": [
+        [
+          {
+            "node": "Still pending?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still pending?": {
+      "main": [
+        [
+          {
+            "node": "Route action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer already decided",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route action": {
+      "main": [
+        [
+          {
+            "node": "Approve",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request edit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve": {
+      "main": [
+        [
+          {
+            "node": "Answer approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reject": {
+      "main": [
+        [
+          {
+            "node": "Answer rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request edit": {
+      "main": [
+        [
+          {
+            "node": "Answer edit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load edit context": {
+      "main": [
+        [
+          {
+            "node": "Edit pending?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit pending?": {
+      "main": [
+        [
+          {
+            "node": "Build edited copy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Answer edit closed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build edited copy": {
+      "main": [
+        [
+          {
+            "node": "Precheck edit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precheck edit": {
+      "main": [
+        [
+          {
+            "node": "Edit ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit ok?": {
+      "main": [
+        [
+          {
+            "node": "Save edit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send violations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save edit": {
+      "main": [
+        [
+          {
+            "node": "Confirm edit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}
