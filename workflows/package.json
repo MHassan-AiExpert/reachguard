@@ -1,0 +1,22 @@
+{
+  "name": "reachguard-workflows",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "tsx ../scripts/build-workflows.mjs",
+    "lint": "tsx ../scripts/lint-workflows.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0",
+    "yaml": "^2.9.1"
+  }
+}
