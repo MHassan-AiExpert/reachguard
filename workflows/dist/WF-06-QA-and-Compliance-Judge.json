@@ -3,8 +3,8 @@
   "name": "WF-06 QA and Compliance Judge",
   "nodes": [
     {
-      "id": "4b866a17-94db-a7b9-6149-d04aced873df",
-      "name": "Every minute",
+      "id": "09b72a7c-7031-7b5e-9332-f0f2fbe41bb4",
+      "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "parameters": {
@@ -544,7 +544,7 @@
         ]
       ]
     },
-    "Every minute": {
+    "Schedule": {
       "main": [
         [
           {

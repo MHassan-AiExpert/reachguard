@@ -45,7 +45,10 @@ export function postgres(name: string, query: string, params?: string): NodeSpec
 }
 
 /** POST to an rg-tools route. `body` is the body of an n8n expression that evaluates to the JSON payload. */
-export function http(name: string, route: string, body: string): NodeSpec {
+export function http(name: string, route: string, body: string, opts: { neverError?: boolean } = {}): NodeSpec {
+  // neverError turns a 4xx or 5xx reply into data ({ statusCode, body }) so the workflow can branch on it.
+  const options: Record<string, unknown> = { timeout: 60000 };
+  if (opts.neverError) options.response = { response: { neverError: true, fullResponse: true } };
   return {
     name,
     type: 'n8n-nodes-base.httpRequest',
@@ -58,7 +61,7 @@ export function http(name: string, route: string, body: string): NodeSpec {
       sendBody: true,
       specifyBody: 'json',
       jsonBody: expr(`JSON.stringify(${body})`),
-      options: { timeout: 60000 },
+      options,
     },
     credentials: KEY,
     retryOnFail: true,

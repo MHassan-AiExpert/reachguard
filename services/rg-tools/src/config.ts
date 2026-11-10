@@ -30,6 +30,8 @@ export interface Config {
   smtpHost: string;
   smtpPort: number;
   eventsWebhookUrl: string;
+  /** Sandbox compresses the gap between sequence steps to this many minutes. */
+  sandboxStepDelayMinutes: number;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -75,5 +77,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     smtpHost: env.SMTP_HOST ?? 'localhost',
     smtpPort: Number(env.SMTP_PORT ?? 1025),
     eventsWebhookUrl: env.RG_EVENTS_WEBHOOK_URL ?? 'http://n8n:5678/webhook/rg/events',
+    sandboxStepDelayMinutes: Number(env.SANDBOX_STEP_DELAY_MINUTES ?? 3),
   };
 }

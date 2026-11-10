@@ -21,6 +21,12 @@ export interface SkeletonOptions {
   perLead: NodeSpec[] | ((flow: Flow) => PerLeadBuild);
   /** Also stop when settings.llm_paused is true (stages that call the LLM gateway). */
   llmGated?: boolean;
+  /** Minutes between scheduled runs (default 1). */
+  everyMinutes?: number;
+  /** Replaces claim_leads for stages that claim something other than a lead status. It must return the lead's id as `id`. */
+  claim?: { query: string; params?: string };
+  /** Statements run once per execution after Start run and before the claim. Each must always return one row. */
+  prelude?: NodeSpec[];
 }
 
 /** Node types that expose an error output when onError is continueErrorOutput. */
@@ -37,7 +43,7 @@ export function stageSkeleton(opts: SkeletonOptions): N8nWorkflow {
   const wf = JSON.stringify(opts.name);
   const enabled = opts.llmGated ? '!$json.kill_switch && !$json.llm_paused' : '!$json.kill_switch';
 
-  f.add(schedule('Every minute', 1));
+  f.add(schedule('Schedule', opts.everyMinutes ?? 1));
   f.add(executeTrigger());
   f.add(
     postgres(
@@ -52,11 +58,13 @@ export function stageSkeleton(opts: SkeletonOptions): N8nWorkflow {
     postgres('Start run', 'INSERT INTO runs (workflow, execution_id) VALUES ($1, $2) RETURNING id AS run_id', `[${wf}, String($execution.id)]`),
   );
   const claim = f.add(
-    postgres(
-      'Claim leads',
-      `SELECT * FROM claim_leads('${opts.inputStatus}'::lead_status, ${opts.batch}, $1)`,
-      `[${wf} + ":" + $execution.id]`,
-    ),
+    opts.claim
+      ? postgres('Claim leads', opts.claim.query, opts.claim.params ?? `[${wf} + ":" + $execution.id]`)
+      : postgres(
+          'Claim leads',
+          `SELECT * FROM claim_leads('${opts.inputStatus}'::lead_status, ${opts.batch}, $1)`,
+          `[${wf} + ":" + $execution.id]`,
+        ),
   );
   claim.alwaysOutputData = true;
   f.add(ifNode('Leads claimed', '!!$json.id'));
@@ -100,11 +108,16 @@ export function stageSkeleton(opts: SkeletonOptions): N8nWorkflow {
     .filter((n) => n.onError === 'continueErrorOutput' && FAILABLE.has(n.type))
     .map((n) => n.name);
 
-  f.connect('Every minute', 'Gate');
+  f.connect('Schedule', 'Gate');
   f.connect('Run on demand', 'Gate');
   f.connect('Gate', 'Stage enabled');
   f.connect('Stage enabled', 'Start run');
-  f.chain('Start run', 'Claim leads', 'Leads claimed');
+  const prelude = opts.prelude ?? [];
+  for (const n of prelude) {
+    n.alwaysOutputData = true;
+    f.add(n);
+  }
+  f.chain('Start run', ...prelude.map((n) => n.name), 'Claim leads', 'Leads claimed');
   f.connect('Leads claimed', 'Lead loop');
   f.connect('Leads claimed', 'End run', 1);
   f.connect('Lead loop', 'End run', 0);

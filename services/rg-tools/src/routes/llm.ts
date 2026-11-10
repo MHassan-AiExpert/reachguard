@@ -25,7 +25,8 @@ export function registerLlm(app: FastifyInstance, deps: ResolvedDeps): void {
         contracts: deps.contracts,
         pricing: deps.pricing,
       },
-      parsed.data,
+      // Workflows cannot read the environment, so the gateway supplies the booking link unless one is passed.
+      { ...parsed.data, variables: { booking_link: deps.config.bookingLink, ...parsed.data.variables } },
     );
     return reply.code(result.status).send(result.body);
   });

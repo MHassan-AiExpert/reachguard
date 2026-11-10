@@ -337,3 +337,24 @@ describe('fixture files', () => {
     expect(readFileSync(path.join(repoRoot, 'prompts/copywriter.md'), 'utf8')).toContain('Evidence only');
   });
 });
+
+describe('booking link default', () => {
+  it('fills booking_link from config so workflows never need to read the environment', async () => {
+    const provider = fakeProvider([
+      JSON.stringify({ classification: 'interested', confidence: 0.9, summary: 'wants a call', unsubscribe_intent: false, next_action: 'notify_hot', suggested_response: 'Great' }),
+    ]);
+    const { server } = app({ provider, config: { bookingLink: 'https://cal.com/example/intro' } });
+    const res = await run(server, { agent: 'reply-classifier', variables: { subject: 'Hi', reply_body: 'Yes please' } });
+    expect(res.statusCode).toBe(200);
+    expect(provider.requests[0]?.system).toContain('https://cal.com/example/intro');
+  });
+  it('lets an explicit booking_link win', async () => {
+    const provider = fakeProvider([
+      JSON.stringify({ classification: 'other', confidence: 0.9, summary: 's', unsubscribe_intent: false, next_action: 'ignore' }),
+    ]);
+    const { server } = app({ provider, config: { bookingLink: 'https://cal.com/default' } });
+    await run(server, { agent: 'reply-classifier', variables: { subject: 'Hi', reply_body: 'x', booking_link: 'https://cal.com/override' } });
+    expect(provider.requests[0]?.system).toContain('https://cal.com/override');
+    expect(provider.requests[0]?.system).not.toContain('https://cal.com/default');
+  });
+});

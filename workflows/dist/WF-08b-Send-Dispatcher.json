@@ -1,0 +1,860 @@
+{
+  "id": "rgwf08b",
+  "name": "WF-08b Send Dispatcher",
+  "nodes": [
+    {
+      "id": "d481b62a-4ad0-bf44-eeeb-dbc62e632988",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "205468e3-24d2-d971-5aae-5333f4252762",
+      "name": "Run on demand",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "9696c284-c7f2-ad62-294e-5ed2a1f01735",
+      "name": "Gate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         COALESCE((SELECT value FROM settings WHERE key = 'kill_switch'), 'false'::jsonb) = 'true'::jsonb AS kill_switch,\n         COALESCE((SELECT value FROM settings WHERE key = 'llm_paused'), 'false'::jsonb) = 'true'::jsonb AS llm_paused",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "b253dfa8-b6a6-f510-a8c3-6ada628b0863",
+      "name": "Stage enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.kill_switch }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "d143a4c2-0d2c-ffbc-e0cb-0df8b01853ae",
+      "name": "Start run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO runs (workflow, execution_id) VALUES ($1, $2) RETURNING id AS run_id",
+        "options": {
+          "queryReplacement": "={{ [\"WF-08b Send Dispatcher\", String($execution.id)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "c564640e-cecf-87d6-5f8b-a44a067f82b5",
+      "name": "Claim leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH cand AS (\n  SELECT DISTINCT ON (s.lead_id) s.id AS send_id, s.lead_id, s.step, s.scheduled_at\n    FROM sends s JOIN leads l ON l.id = s.lead_id\n   WHERE s.status = 'scheduled' AND s.scheduled_at <= now()\n     AND l.status IN ('queued', 'in_sequence')\n     AND (l.locked_at IS NULL OR l.locked_at < now() - interval '10 minutes')\n   ORDER BY s.lead_id, s.step),\ndue AS (\n  SELECT c.send_id, c.lead_id, c.step, c.scheduled_at\n    FROM cand c JOIN leads l ON l.id = c.lead_id\n   ORDER BY c.scheduled_at\n   LIMIT 10\n     FOR UPDATE OF l SKIP LOCKED),\nlk AS (\n  UPDATE leads SET locked_by = $1, locked_at = now() WHERE id IN (SELECT lead_id FROM due) RETURNING id)\nSELECT d.lead_id AS id, d.send_id, d.step, l.campaign_id, l.email::text AS email, l.status::text AS lead_status\n  FROM due d JOIN leads l ON l.id = d.lead_id\n ORDER BY d.scheduled_at",
+        "options": {
+          "queryReplacement": "={{ [\"WF-08b Send Dispatcher\" + \":\" + $execution.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "c7f4db74-160f-c55f-2437-c3f0bf9198be",
+      "name": "Leads claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "0b7dd72f-1948-3101-6993-11c1e079dd5e",
+      "name": "Lead loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "5ff6b3a3-1ef8-bea4-ccb1-f01acf904f44",
+      "name": "Release lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT release_lead($1::uuid, $2) AS released",
+        "options": {
+          "queryReplacement": "={{ [$('Lead loop').first().json.id, (typeof $json.error === \"string\" ? $json.error : JSON.stringify($json.error ?? \"stage failed\")).slice(0, 500)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "bba74e73-acab-2aff-97ce-af45d5e3f2a5",
+      "name": "End run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE runs\n          SET status = 'succeeded', ended_at = now(),\n              latency_ms = (extract(epoch FROM now() - started_at) * 1000)::int\n        WHERE id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Start run').first().json.run_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1820,
+        160
+      ]
+    },
+    {
+      "id": "c3022f69-6699-37f5-997f-442d7e960979",
+      "name": "Init state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { lead: $json } }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "091ddd8b-53c1-df5a-79b6-2f7b2daf1dda",
+      "name": "Pre-send checks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  COALESCE((SELECT value FROM settings WHERE key = 'kill_switch'), 'false'::jsonb) = 'true'::jsonb AS kill_switch,\n  is_suppressed($2::citext) AS suppressed,\n  EXISTS (SELECT 1 FROM events WHERE lead_id = $1::uuid AND type IN ('reply', 'unsubscribe', 'bounce_hard', 'complaint')) AS stop_event,\n  NOT EXISTS (SELECT 1 FROM sender_inboxes i JOIN sending_domains d ON d.domain = i.domain\n               WHERE i.status = 'active' AND d.status = 'active') AS domain_inactive,\n  NOT EXISTS (SELECT 1 FROM sender_inboxes i JOIN sending_domains d ON d.domain = i.domain\n               WHERE i.status = 'active' AND d.status = 'active'\n                 AND (SELECT count(*) FROM sends x WHERE x.inbox_id = i.id AND x.status = 'sent'\n                         AND x.sent_at >= date_trunc('day', now())) < i.daily_limit) AS inbox_capped,\n  (SELECT count(*) FROM sends x JOIN leads l ON l.id = x.lead_id\n    WHERE l.campaign_id = $3::uuid AND x.status = 'sent' AND x.sent_at >= date_trunc('day', now()))\n    >= COALESCE((SELECT daily_send_cap FROM campaigns WHERE id = $3::uuid), 0) AS campaign_capped",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id, $json.lead.email, $json.lead.campaign_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2340,
+        160
+      ]
+    },
+    {
+      "id": "c17f805e-3bf3-02f5-7759-279e3348a720",
+      "name": "Block evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init state').first().json));\nconst r = $json;\nfunction firstBlock(c) {\n  const order = [\n    ['kill_switch', 'defer'],\n    ['suppressed', 'cancel'],\n    ['stop_event', 'cancel'],\n    ['domain_inactive', 'defer'],\n    ['inbox_capped', 'defer'],\n    ['campaign_capped', 'defer'],\n  ];\n  for (const [reason, action] of order) if (c[reason] === true) return { reason, action };\n  return null;\n}\ns.block = firstBlock(r);\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "162457e4-8909-d56a-17f2-7d2d97e5aeb5",
+      "name": "Blocked?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.block }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "ba7ce294-7be6-e408-0152-78dddfb2e674",
+      "name": "Cancel sequence?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.block.action === 'cancel' }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "523a2f0f-4e11-dba6-6c01-6210d8288548",
+      "name": "Cancel sequence",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH cx AS (\n  UPDATE sends SET status = 'cancelled', failure = $2 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $2, 'WF-08b')\n    FROM leads l WHERE l.id = $1::uuid AND $2 = 'suppressed' AND l.status IN ('queued', 'in_sequence'))\nSELECT (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS suppressed",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id, $json.block.reason] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "2c294f18-295d-b835-cd05-d0f1b3f303b2",
+      "name": "Send email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ send_id: $json.lead.send_id }) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        3120,
+        160
+      ]
+    },
+    {
+      "id": "5897754c-dd95-5ef5-172b-8673dc04d697",
+      "name": "Send evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init state').first().json));\nconst r = $json;\nconst code = Number(r.statusCode);\nconst body = r.body || {};\ns.send_status = code;\ns.sent = code === 200 && body.status === 'sent';\n// 409 and 423 are refusals the send route has already handled (suppressed, not sendable, kill switch, capped).\nif (!s.sent && code >= 500) throw new Error('send failed: ' + code + ' ' + JSON.stringify(body).slice(0, 300));\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3380,
+        160
+      ]
+    },
+    {
+      "id": "c126fa6d-ea95-b22d-6373-c6d3170c99ee",
+      "name": "First step sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.sent === true && Number($json.lead.step) === 1 && $json.lead.lead_status === 'queued' }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "id": "93ed6687-60c3-9af9-732a-5094c2179254",
+      "name": "Mark in sequence",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT transition_lead($1::uuid, 'queued'::lead_status, 'in_sequence'::lead_status, 'first step sent', 'WF-08b') AS transitioned",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "id": "0f26ee9a-9998-42c8-ff0d-66688dee5458",
+      "name": "Unlock lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads SET locked_by = NULL, locked_at = NULL WHERE id = $1::uuid RETURNING id",
+        "options": {
+          "queryReplacement": "={{ [$(\"Init state\").first().json.lead.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3380,
+        320
+      ]
+    },
+    {
+      "id": "916755eb-f6c3-4660-3eab-247804a4a47a",
+      "name": "Complete finished sequences",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH done AS (\n  SELECT l.id FROM leads l\n   WHERE l.status = 'in_sequence'\n     AND NOT EXISTS (SELECT 1 FROM sends s WHERE s.lead_id = l.id AND s.status = 'scheduled')\n     AND (SELECT max(sent_at) FROM sends WHERE lead_id = l.id) < now() - interval '3 days'),\nmoved AS (\n  SELECT transition_lead(id, 'in_sequence'::lead_status, 'completed'::lead_status, 'sequence finished', 'WF-08b') FROM done)\nSELECT count(*) AS completed FROM moved",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1040,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Init state": {
+      "main": [
+        [
+          {
+            "node": "Pre-send checks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-send checks": {
+      "main": [
+        [
+          {
+            "node": "Block evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Block evaluate": {
+      "main": [
+        [
+          {
+            "node": "Blocked?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blocked?": {
+      "main": [
+        [
+          {
+            "node": "Cancel sequence?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel sequence?": {
+      "main": [
+        [
+          {
+            "node": "Cancel sequence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unlock lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel sequence": {
+      "main": [
+        [
+          {
+            "node": "Unlock lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email": {
+      "main": [
+        [
+          {
+            "node": "Send evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send evaluate": {
+      "main": [
+        [
+          {
+            "node": "First step sent?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "First step sent?": {
+      "main": [
+        [
+          {
+            "node": "Mark in sequence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unlock lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run on demand": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate": {
+      "main": [
+        [
+          {
+            "node": "Stage enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage enabled": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Complete finished sequences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete finished sequences": {
+      "main": [
+        [
+          {
+            "node": "Claim leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim leads": {
+      "main": [
+        [
+          {
+            "node": "Leads claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads claimed": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead loop": {
+      "main": [
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unlock lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark in sequence": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

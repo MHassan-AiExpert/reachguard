@@ -3,8 +3,8 @@
   "name": "WF-03 Research Agent",
   "nodes": [
     {
-      "id": "1a5b9005-c44f-1a04-db46-256363ac1949",
-      "name": "Every minute",
+      "id": "68cd07e9-4874-efec-253e-5f394055a669",
+      "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "parameters": {
@@ -678,7 +678,7 @@
         ]
       ]
     },
-    "Every minute": {
+    "Schedule": {
       "main": [
         [
           {

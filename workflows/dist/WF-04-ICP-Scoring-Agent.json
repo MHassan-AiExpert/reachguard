@@ -3,8 +3,8 @@
   "name": "WF-04 ICP Scoring Agent",
   "nodes": [
     {
-      "id": "25d5c987-1d0b-e786-8c90-994b1674c088",
-      "name": "Every minute",
+      "id": "8edc81d8-7b2d-d6e6-a29d-5b5b3a72c668",
+      "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "parameters": {
@@ -495,7 +495,7 @@
         ]
       ]
     },
-    "Every minute": {
+    "Schedule": {
       "main": [
         [
           {

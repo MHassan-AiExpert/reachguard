@@ -1,0 +1,1553 @@
+{
+  "id": "rgwf09",
+  "name": "WF-09 Reply and Event Handler",
+  "nodes": [
+    {
+      "id": "25e2da73-3ba5-b120-8ea6-f3cb6f7b598d",
+      "name": "Events webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rg/events",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "webhookId": "rg-events",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "a91c379c-6e07-4d14-aaef-db182889ebf6",
+      "name": "Extract request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const item = $input.first();\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst h = item.json.headers || {};\nreturn [{ json: { raw_body: buf.toString('utf8'), signature: h['x-rg-signature'] || '', timestamp: h['x-rg-timestamp'] || '' } }];"
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "905cb445-6f6d-24f5-0256-a09d01904baa",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/auth/verify-webhook",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ raw_body: $json.raw_body, signature: $json.signature, timestamp: $json.timestamp }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "d32d94fa-b0cd-1fda-c94a-9d5c486ad023",
+      "name": "Signature valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.valid === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "b58e65ce-e9d1-9096-7c34-87d9b552294c",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: \"invalid_signature\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "0742580d-5c6e-69ce-4428-52198154a641",
+      "name": "Parse event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const raw = $('Extract request').first().json.raw_body;\nlet b;\ntry { b = JSON.parse(raw); } catch { return [{ json: { ok: false, error: 'invalid_json' } }]; }\nconst wrapped = b && typeof b === 'object' && typeof b.provider === 'string' && b.payload !== undefined;\nreturn [{ json: { ok: true, provider: wrapped ? b.provider : 'smartlead', payload: wrapped ? b.payload : b } }];"
+      },
+      "position": [
+        1040,
+        160
+      ]
+    },
+    {
+      "id": "1b9794cb-be44-8b2b-3b42-1a312a63712c",
+      "name": "Body parsed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.ok === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "4dff0666-30ab-1eb6-a485-2f4993a83b33",
+      "name": "Respond 400 body",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "e3879cd6-a802-9283-8331-f0ee415408a0",
+      "name": "Normalize event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/events/normalize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ provider: $json.provider, payload: $json.payload }) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "b6f34576-6db9-4b04-fa66-7ac2f7853c2b",
+      "name": "Event normalized",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.statusCode === 200 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "e0a92b7c-d053-74b9-21ed-98f4b1ea0492",
+      "name": "Respond 400 event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: \"invalid_event\" } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "ea8f6489-2815-9c90-aee5-2ecbc54b2e47",
+      "name": "Unpack event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: $json.body }];"
+      },
+      "position": [
+        2080,
+        160
+      ]
+    },
+    {
+      "id": "6a274fb0-6e12-67cd-9636-d63fdb23eec5",
+      "name": "Insert event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH l AS (\n  SELECT id, email::text AS email, status::text AS status FROM leads\n   WHERE ($3::uuid IS NOT NULL AND id = $3::uuid)\n      OR ($3::uuid IS NULL AND $5::text IS NOT NULL AND email = $5::citext)\n   LIMIT 1),\nsd AS (\n  SELECT COALESCE((SELECT id FROM sends WHERE id = $4::uuid),\n                  (SELECT id FROM sends WHERE lead_id = (SELECT id FROM l) AND status = 'sent' ORDER BY sent_at DESC LIMIT 1)) AS id),\nins AS (\n  INSERT INTO events (provider_event_id, lead_id, send_id, type, payload, occurred_at)\n  SELECT $1, (SELECT id FROM l), (SELECT id FROM sd), $2, $7::jsonb, $6::timestamptz\n  ON CONFLICT (provider_event_id) WHERE provider_event_id IS NOT NULL DO NOTHING\n  RETURNING id)\nSELECT (SELECT id FROM ins) AS event_id, (SELECT id FROM ins) IS NOT NULL AS is_new,\n       (SELECT id FROM l) AS lead_id, (SELECT email FROM l) AS email, (SELECT status FROM l) AS lead_status,\n       (SELECT id FROM sd) AS send_id",
+        "options": {
+          "queryReplacement": "={{ [$('Unpack event').first().json.provider_event_id, $('Unpack event').first().json.type, $('Unpack event').first().json.lead_id ?? null, $('Unpack event').first().json.send_id ?? null, $('Unpack event').first().json.email ?? null, $('Unpack event').first().json.occurred_at, JSON.stringify({ body: $('Unpack event').first().json.body ?? null })] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "21c07240-4263-1352-2ead-404b9a15c475",
+      "name": "New event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.is_new === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "a9314209-b519-31ab-c064-cffab56c5e5b",
+      "name": "Respond duplicate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"duplicate\" } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "4ff1a6f8-5555-05e8-0e29-463c28eaa74c",
+      "name": "Lead known?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.lead_id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2860,
+        160
+      ]
+    },
+    {
+      "id": "fb95b5dc-0ac6-5ce1-3d18-d2aa80f779e9",
+      "name": "Respond ignored",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"ignored\", reason: \"unknown_lead\" } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "2c8b1921-9bed-a201-b2b1-e12fe7ef83e9",
+      "name": "Respond accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"accepted\" } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "position": [
+        3120,
+        160
+      ]
+    },
+    {
+      "id": "655d151c-804f-da95-750b-30da2bb56b51",
+      "name": "Route event type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827556e70",
+                    "leftValue": "={{ $('Unpack event').first().json.type }}",
+                    "rightValue": "delivered",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "delivered"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827556e70",
+                    "leftValue": "={{ $('Unpack event').first().json.type }}",
+                    "rightValue": "bounce_hard",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "bounce_hard"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827556e70",
+                    "leftValue": "={{ $('Unpack event').first().json.type }}",
+                    "rightValue": "bounce_soft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "bounce_soft"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827556e70",
+                    "leftValue": "={{ $('Unpack event').first().json.type }}",
+                    "rightValue": "complaint",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "complaint"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827556e70",
+                    "leftValue": "={{ $('Unpack event').first().json.type }}",
+                    "rightValue": "unsubscribe",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "unsubscribe"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827556e70",
+                    "leftValue": "={{ $('Unpack event').first().json.type }}",
+                    "rightValue": "reply",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reply"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827556e70",
+                    "leftValue": "={{ $('Unpack event').first().json.type }}",
+                    "rightValue": "meeting_booked",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "meeting_booked"
+            }
+          ]
+        }
+      },
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "8a7e58b4-968d-bf2b-7871-1d8949a30b09",
+      "name": "Delivered noted",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "id": "6aa9c268-aa1c-8718-2b0a-37c862e52e50",
+      "name": "Suppress hard bounce",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"bounce_hard\"] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3640,
+        160
+      ]
+    },
+    {
+      "id": "2ce8c045-df33-7407-a8fa-fc50cd9d1fd1",
+      "name": "Count soft bounces",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT count(*) AS n FROM events\n        WHERE lead_id = $1::uuid AND type = 'bounce_soft' AND occurred_at > now() - interval '30 days'",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3640,
+        320
+      ]
+    },
+    {
+      "id": "19da090b-fc79-a2a1-538c-61a7e7040bd8",
+      "name": "Soft bounces repeated?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-4e756d626572",
+              "leftValue": "={{ Number($json.n) >= 3 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "id": "5d0314d7-0042-6655-7f60-3fc92a7db7ef",
+      "name": "Suppress soft bounces",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"bounce_soft_repeated\"] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        4160,
+        0
+      ]
+    },
+    {
+      "id": "c2ef34c6-071c-2d66-0326-78e45c11690b",
+      "name": "Suppress complaint",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"complaint\"] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3640,
+        480
+      ]
+    },
+    {
+      "id": "51679478-13c7-44d2-2976-43dfb4033834",
+      "name": "Flag domain",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH u AS (\n  UPDATE sending_domains SET paused_reason = 'complaint received: review before sending more'\n   WHERE domain = (SELECT i.domain FROM sends s JOIN sender_inboxes i ON i.id = s.inbox_id WHERE s.id = $1::uuid)\n  RETURNING domain)\nSELECT (SELECT count(*) FROM u) AS flagged, (SELECT domain FROM u LIMIT 1) AS domain, (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.send_id ?? null] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3900,
+        160
+      ]
+    },
+    {
+      "id": "b9cfeb02-7ecc-e8bb-671b-9cbcb3b7fe21",
+      "name": "Alert complaint",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ \"URGENT: spam complaint from \" + $('Insert event').first().json.email + ($json.domain ? \" (sending domain \" + $json.domain + \" flagged for review)\" : \"\") + \". The address is suppressed and its sequence cancelled.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        4160,
+        160
+      ]
+    },
+    {
+      "id": "d2fcc4d6-c5d2-9d0a-11a6-855e3c25861b",
+      "name": "Suppress unsubscribe",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"unsubscribe\"] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3640,
+        640
+      ]
+    },
+    {
+      "id": "f93981ea-198a-45dc-b3ce-5cea4ccce1f2",
+      "name": "Store reply",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO replies (lead_id, send_id, event_id, body)\n       VALUES ($1::uuid, $2::uuid, $3::uuid, $4)\n       RETURNING id AS reply_id,\n         COALESCE((SELECT d.subject FROM sends s JOIN drafts d ON d.id = s.draft_id\n                    WHERE s.lead_id = $1::uuid AND s.step = 1), '') AS subject",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.send_id ?? null, $('Insert event').first().json.event_id, $('Unpack event').first().json.body ?? \"\"] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        3640,
+        800
+      ]
+    },
+    {
+      "id": "126858a3-f629-dbce-3afe-944f5e17fd6f",
+      "name": "Classify reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/llm/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent: \"reply-classifier\", lead_id: $('Insert event').first().json.lead_id, variables: { subject: $json.subject, reply_body: $('Unpack event').first().json.body ?? \"\" } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        3900,
+        320
+      ]
+    },
+    {
+      "id": "40b1d0de-50a2-b170-0eea-cb330ca68b6d",
+      "name": "Apply overrides",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "function routeReply(out, ruleHit) {\n  if (ruleHit === true) return { next_action: 'suppress', reason: 'unsubscribe_rule' };\n  if (out.unsubscribe_intent === true || out.classification === 'unsubscribe') return { next_action: 'suppress', reason: 'model_unsubscribe' };\n  if (!(Number(out.confidence) >= 0.7)) return { next_action: 'human_review', reason: 'low_confidence' };\n  return { next_action: out.next_action, reason: 'model' };\n}\nconst out = $json.output;\nconst r = routeReply(out, $('Unpack event').first().json.unsubscribe_rule_hit === true);\nreturn [{ json: { out, next_action: r.next_action, override_reason: r.reason } }];"
+      },
+      "position": [
+        4160,
+        320
+      ]
+    },
+    {
+      "id": "d695b806-9674-833a-5680-d06340b9726d",
+      "name": "Save classification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE replies SET classification = $2, confidence = $3::numeric, summary = $4, suggested_response = $5, next_action = $6\n        WHERE id = $1::uuid\n       RETURNING id, (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id') AS chat_id",
+        "options": {
+          "queryReplacement": "={{ [$('Store reply').first().json.reply_id, $json.out.classification, $json.out.confidence, $json.out.summary, $json.out.suggested_response ?? null, $json.next_action] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        4420,
+        0
+      ]
+    },
+    {
+      "id": "ee63a2e0-8770-58d9-f03d-898dd677a284",
+      "name": "Route reply action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827417070",
+                    "leftValue": "={{ $('Apply overrides').first().json.next_action }}",
+                    "rightValue": "suppress",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "suppress"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827417070",
+                    "leftValue": "={{ $('Apply overrides').first().json.next_action }}",
+                    "rightValue": "notify_hot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "notify_hot"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827417070",
+                    "leftValue": "={{ $('Apply overrides').first().json.next_action }}",
+                    "rightValue": "draft_reply",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "draft_reply"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827417070",
+                    "leftValue": "={{ $('Apply overrides').first().json.next_action }}",
+                    "rightValue": "wait",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "wait"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827417070",
+                    "leftValue": "={{ $('Apply overrides').first().json.next_action }}",
+                    "rightValue": "human_review",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "human_review"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "c-242827417070",
+                    "leftValue": "={{ $('Apply overrides').first().json.next_action }}",
+                    "rightValue": "ignore",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ignore"
+            }
+          ]
+        }
+      },
+      "position": [
+        4680,
+        0
+      ]
+    },
+    {
+      "id": "bc2b0e78-fa6a-20ba-fddf-80765c73e25b",
+      "name": "Suppress reply",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"unsubscribe\"] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        4940,
+        0
+      ]
+    },
+    {
+      "id": "5727f9d5-a1af-6bcc-a7ea-10aa9e3d223d",
+      "name": "Mark replied",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH cx AS (\n  UPDATE sends SET status = 'cancelled', failure = 'reply' WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1)\nSELECT transition_lead(l.id, 'in_sequence'::lead_status, 'replied'::lead_status, $2, 'WF-09') AS moved,\n       (SELECT count(*) FROM cx) AS cancelled\n  FROM leads l WHERE l.id = $1::uuid AND l.status = 'in_sequence'",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, \"reply: \" + $('Apply overrides').first().json.next_action] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        4940,
+        160
+      ]
+    },
+    {
+      "id": "424f9ae8-05ec-c790-9e84-68f86aa1777a",
+      "name": "Alert reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Save classification').first().json.chat_id }}",
+        "text": "={{ ({ notify_hot: \"HOT reply\", draft_reply: \"Objection, suggested reply below\", human_review: \"Reply needs your review\" })[$('Apply overrides').first().json.next_action] + \" from \" + $('Insert event').first().json.email + \"\\n\" + $('Apply overrides').first().json.out.summary + \"\\n\\nSuggested response:\\n\" + ($('Apply overrides').first().json.out.suggested_response ?? \"(none)\") + \"\\n\\nNothing was sent. Reply from your own inbox.\" }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "rg-telegram",
+          "name": "RG Telegram"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "position": [
+        5200,
+        0
+      ]
+    },
+    {
+      "id": "dc34aa31-d6f7-9be7-6cbe-f65e7208fc40",
+      "name": "Pause sequence",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH cx AS (\n  UPDATE sends SET status = 'cancelled', failure = 'not_now' WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1)\nSELECT transition_lead(l.id, 'in_sequence'::lead_status, 'completed'::lead_status, $2, 'WF-09') AS moved,\n       (SELECT count(*) FROM cx) AS cancelled\n  FROM leads l WHERE l.id = $1::uuid AND l.status = 'in_sequence'",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, \"not_now\" + ($('Apply overrides').first().json.out.return_date ? \" return_date=\" + $('Apply overrides').first().json.out.return_date : \"\")] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        4940,
+        320
+      ]
+    },
+    {
+      "id": "b793e571-fa20-19ad-6c2a-0c18f2a1ceaf",
+      "name": "Ignore reply",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        4940,
+        480
+      ]
+    },
+    {
+      "id": "554d7699-49bb-01f4-f942-1499925f7ede",
+      "name": "Meeting booked noted",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        3640,
+        960
+      ]
+    }
+  ],
+  "connections": {
+    "Events webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract request": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Signature valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid": {
+      "main": [
+        [
+          {
+            "node": "Parse event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse event": {
+      "main": [
+        [
+          {
+            "node": "Body parsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Body parsed": {
+      "main": [
+        [
+          {
+            "node": "Normalize event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize event": {
+      "main": [
+        [
+          {
+            "node": "Event normalized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event normalized": {
+      "main": [
+        [
+          {
+            "node": "Unpack event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpack event": {
+      "main": [
+        [
+          {
+            "node": "Insert event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert event": {
+      "main": [
+        [
+          {
+            "node": "New event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New event?": {
+      "main": [
+        [
+          {
+            "node": "Lead known?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead known?": {
+      "main": [
+        [
+          {
+            "node": "Respond accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond ignored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond accepted": {
+      "main": [
+        [
+          {
+            "node": "Route event type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route event type": {
+      "main": [
+        [
+          {
+            "node": "Delivered noted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Suppress hard bounce",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Count soft bounces",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Suppress complaint",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Suppress unsubscribe",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meeting booked noted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count soft bounces": {
+      "main": [
+        [
+          {
+            "node": "Soft bounces repeated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Soft bounces repeated?": {
+      "main": [
+        [
+          {
+            "node": "Suppress soft bounces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Suppress complaint": {
+      "main": [
+        [
+          {
+            "node": "Flag domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flag domain": {
+      "main": [
+        [
+          {
+            "node": "Alert complaint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store reply": {
+      "main": [
+        [
+          {
+            "node": "Classify reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify reply": {
+      "main": [
+        [
+          {
+            "node": "Apply overrides",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply overrides": {
+      "main": [
+        [
+          {
+            "node": "Save classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save classification": {
+      "main": [
+        [
+          {
+            "node": "Route reply action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route reply action": {
+      "main": [
+        [
+          {
+            "node": "Suppress reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark replied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark replied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pause sequence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark replied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignore reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark replied": {
+      "main": [
+        [
+          {
+            "node": "Alert reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

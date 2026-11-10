@@ -3,8 +3,8 @@
   "name": "WF-02 Hygiene Agent",
   "nodes": [
     {
-      "id": "59c96b44-7f5d-e1cf-b070-90088054bce6",
-      "name": "Every minute",
+      "id": "e6d77f13-1e5b-61d4-ea4c-f9cc338f670f",
+      "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "parameters": {
@@ -1652,7 +1652,7 @@
         ]
       ]
     },
-    "Every minute": {
+    "Schedule": {
       "main": [
         [
           {

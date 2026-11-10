@@ -3,8 +3,8 @@
   "name": "WF-05 Copywriter Agent",
   "nodes": [
     {
-      "id": "1d692fff-5215-b33f-242f-3b34d60b95dc",
-      "name": "Every minute",
+      "id": "a38f8f7d-8a22-174a-ede4-89ab3be00fbb",
+      "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "parameters": {
@@ -795,7 +795,7 @@
         ]
       ]
     },
-    "Every minute": {
+    "Schedule": {
       "main": [
         [
           {

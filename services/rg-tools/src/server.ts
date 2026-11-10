@@ -26,6 +26,8 @@ import { registerHygiene } from './routes/hygiene.js';
 import { registerLeads } from './routes/leads.js';
 import { registerLlm } from './routes/llm.js';
 import { registerResearch } from './routes/research.js';
+import { loadSendingRules, type SendingRules } from './lib/schedule.js';
+import { registerSchedule } from './routes/schedule.js';
 import { registerScore } from './routes/score.js';
 import { registerSandbox } from './routes/sandbox.js';
 import { registerSandboxSites } from './routes/sandbox-sites.js';
@@ -49,6 +51,9 @@ export interface Deps {
   copyStore?: CopyStore;
   qaRules?: QaRules;
   scoring?: ScoringRules;
+  sending?: SendingRules;
+  /** Random source for send-time jitter; tests inject a fixed one. */
+  rng?: () => number;
   sender?: SenderAdapter;
   unsubscribeRules?: UnsubscribeRules;
   webhookFetch?: typeof fetch;
@@ -65,6 +70,8 @@ export interface ResolvedDeps extends Deps {
   prompts: PromptStore;
   qaRules: QaRules;
   scoring: ScoringRules;
+  sending: SendingRules;
+  rng: () => number;
   sender: SenderAdapter;
   unsubscribeRules: UnsubscribeRules;
   webhookFetch: typeof fetch;
@@ -95,6 +102,8 @@ export function buildServer(deps: Deps): FastifyInstance {
     webhookFetch: deps.webhookFetch ?? fetch,
     qaRules: deps.qaRules ?? loadQaRules(deps.config.configDir),
     scoring: deps.scoring ?? loadScoringRules(deps.config.configDir),
+    sending: deps.sending ?? loadSendingRules(deps.config.configDir),
+    rng: deps.rng ?? Math.random,
     copyStore: deps.copyStore ?? (deps.db ? createPgCopyStore(deps.db) : undefined),
     llmStore: deps.llmStore ?? (deps.db ? createPgLlmStore(deps.db) : undefined),
   };
@@ -116,6 +125,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerVerify(app, resolved);
   registerScore(app, resolved);
   registerApprovals(app, resolved);
+  registerSchedule(app, resolved);
   registerLlm(app, resolved);
   registerResearch(app, resolved);
   registerSandboxSites(app, resolved);

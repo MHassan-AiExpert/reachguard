@@ -3,8 +3,8 @@
   "name": "WF-07a Approval Dispatcher",
   "nodes": [
     {
-      "id": "f723ddf8-1f4c-6856-edac-86688c6049d2",
-      "name": "Every minute",
+      "id": "87e71f46-c8e6-0d3d-8de1-c5331a640ef0",
+      "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "parameters": {
@@ -680,7 +680,7 @@
         ]
       ]
     },
-    "Every minute": {
+    "Schedule": {
       "main": [
         [
           {

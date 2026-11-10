@@ -33,6 +33,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     smtpHost: 'localhost',
     smtpPort: 1025,
     eventsWebhookUrl: 'http://n8n.test/webhook/rg/events',
+    sandboxStepDelayMinutes: 3,
     ...overrides,
   };
 }
