@@ -51,3 +51,12 @@ Change the value in `.env`, `make up`, rerun `node scripts/create-credentials.mj
 4. Implement and test the live verifier and sender adapters (currently pending).
 5. Run a supervised pilot of about 20 leads with approval required for every tier.
 6. Only then set `MODE=live` and `LIVE_SEND_ENABLED=true`.
+
+## Operational notes
+
+- Telegram approvals need n8n reachable on a public HTTPS `WEBHOOK_URL` (a tunnel works) so the Telegram trigger in WF-07b can activate. Create the Telegram credential before activating the workflows that reference it.
+- After a long pause or cap, several overdue steps of one lead can be due at once. Review the send queue before resuming a long pause.
+- State functions do not check lease ownership, so keep stage batches small (they are 3 to 5 leads) and leases at 10 minutes.
+- The per-company contact cap is evaluated per lead; two workers evaluating leads of the same company at the same instant can both pass it.
+- Plus-addressed variants and internationalized domains are not normalised to one identity or to punycode.
+- The workflows import into n8n 2.46.7 (checked with the n8n CLI). Pin `N8N_VERSION` to the version you run and re-import after upgrading.
