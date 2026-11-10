@@ -7,12 +7,15 @@ import { createVerifier, type Verifier } from './adapters/verify/index.js';
 import { loadContracts, type ContractRegistry } from './lib/contracts.js';
 import { loadHygieneLists, type HygieneLists } from './lib/email.js';
 import type { SafeFetchDeps } from './lib/fetcher.js';
+import { createPgCopyStore, type CopyStore } from './lib/copy-store.js';
 import { createPgLlmStore, type LlmStore } from './lib/llm-store.js';
 import { loadPricing, type Pricing } from './lib/pricing.js';
+import { loadQaRules, type QaRules } from './lib/precheck.js';
 import { createPromptStore, type PromptStore } from './lib/prompts.js';
 import { createMemoryCache, systemResolver, type DnsResolver, type MxCache } from './lib/mx.js';
 import { registerAuth } from './routes/auth.js';
 import { registerContracts } from './routes/contracts.js';
+import { registerCopy } from './routes/copy.js';
 import { registerHealth } from './routes/health.js';
 import { registerHygiene } from './routes/hygiene.js';
 import { registerLlm } from './routes/llm.js';
@@ -33,6 +36,8 @@ export interface Deps {
   pricing?: Pricing;
   prompts?: PromptStore;
   fetchDeps?: SafeFetchDeps;
+  copyStore?: CopyStore;
+  qaRules?: QaRules;
 }
 
 export interface ResolvedDeps extends Deps {
@@ -44,6 +49,7 @@ export interface ResolvedDeps extends Deps {
   llmProvider: LlmProvider;
   pricing: Pricing;
   prompts: PromptStore;
+  qaRules: QaRules;
 }
 
 const PUBLIC_PREFIXES = ['/healthz', '/u/'];
@@ -66,6 +72,8 @@ export function buildServer(deps: Deps): FastifyInstance {
     llmProvider: deps.llmProvider ?? createLlmProvider(deps.config),
     pricing: deps.pricing ?? loadPricing(deps.config.configDir),
     prompts: deps.prompts ?? createPromptStore(deps.config.promptsDir),
+    qaRules: deps.qaRules ?? loadQaRules(deps.config.configDir),
+    copyStore: deps.copyStore ?? (deps.db ? createPgCopyStore(deps.db) : undefined),
     llmStore: deps.llmStore ?? (deps.db ? createPgLlmStore(deps.db) : undefined),
   };
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
@@ -87,5 +95,6 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerLlm(app, resolved);
   registerResearch(app, resolved);
   registerSandboxSites(app, resolved);
+  registerCopy(app, resolved);
   return app;
 }
