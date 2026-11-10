@@ -1,3 +1,16 @@
+<p align="center">
+  <a href="docs/images/cover.png"><img src="docs/images/cover.png" alt="ReachGuard: multi-agent B2B outreach and lead hygiene pipeline" width="100%"></a>
+</p>
+
+<p align="center">
+  <img alt="n8n" src="https://img.shields.io/badge/automation-n8n-EA4B71?logo=n8n&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/database-PostgreSQL%2016-4169E1?logo=postgresql&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/service-TypeScript%20%2F%20Fastify-3178C6?logo=typescript&logoColor=white">
+  <img alt="LLM" src="https://img.shields.io/badge/LLM-Gemini%20%7C%20OpenAI-8E75B2">
+  <img alt="Docker" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white">
+  <img alt="Workflows" src="https://img.shields.io/badge/workflows-14-2dd4bf">
+</p>
+
 # ReachGuard
 
 **A multi-agent B2B cold-outreach and lead-hygiene pipeline on n8n.**
@@ -13,6 +26,12 @@ Built by Muhammad Hassan, AI Automation Engineer & Full Stack Developer.
 | Service | `rg-tools`: Fastify + TypeScript (Zod, Ajv), LLM gateway, send adapters |
 | Agents | Hygiene normaliser, research extractor, ICP scorer, copywriter, QA judge, reply classifier |
 | Ops | Docker Compose, Mailpit, Metabase, Telegram alerts and approvals, GitHub Actions CI |
+
+---
+
+## At a glance
+
+[![At a glance](docs/images/overview.png)](docs/images/overview.png)
 
 ---
 
@@ -48,6 +67,10 @@ ReachGuard is built so each of those is hard to commit. Hygiene rules run before
 ---
 
 ## System architecture
+
+[![System architecture](docs/images/architecture.png)](docs/images/architecture.png)
+
+The same architecture as a diagram that renders from source:
 
 ```mermaid
 flowchart TB
