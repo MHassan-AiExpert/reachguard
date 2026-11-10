@@ -715,7 +715,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  (SELECT count(*) FROM leads\n    WHERE company_id = $1::uuid AND id <> $2::uuid\n      AND status IN ('queued','in_sequence','replied','completed')) AS contacted,\n  EXISTS (SELECT 1 FROM sends s JOIN leads l ON l.id = s.lead_id\n           WHERE l.company_id = $1::uuid AND l.id <> $2::uuid AND s.status = 'sent'\n             AND s.sent_at > now() - make_interval(days => 90)) AS in_cooldown",
+        "query": "SELECT\n  (SELECT count(*) FROM leads\n    WHERE company_id = $1::uuid AND id <> $2::uuid\n      AND status IN ('verified','researched','scored','drafted','qa_passed','pending_approval','approved','queued','in_sequence','replied','completed')) AS contacted,\n  EXISTS (SELECT 1 FROM sends s JOIN leads l ON l.id = s.lead_id\n           WHERE l.company_id = $1::uuid AND l.id <> $2::uuid AND s.status = 'sent'\n             AND s.sent_at > now() - make_interval(days => 90)) AS in_cooldown",
         "options": {
           "queryReplacement": "={{ [$json.company_id, $json.lead.id] }}"
         }

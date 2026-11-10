@@ -138,6 +138,13 @@ describe('grounding', () => {
     expect(p.metrics).toEqual([]);
   });
 
+  it('does not count a failed judge call as a caught bad draft', async () => {
+    const broken: LlmCaller = async () => ({ ok: false, reason: 'HTTP 502' });
+    const p = part(await runGrounding(ctx(withLlm(broken))), 'judge');
+    expect(metric(p, 'bad drafts caught (judge plus code checks)').value).toBe(0);
+    expect(metric(p, 'judge calls that errored').value).toBe(30);
+  });
+
   it('lets the code layer override a lenient judge: a judge that passes everything still cannot pass precheck failures', async () => {
     const lenient: LlmCaller = async (_a, v) => {
       const drafts = JSON.parse(String(v.drafts_json)) as { step: number; claims: unknown[] }[];

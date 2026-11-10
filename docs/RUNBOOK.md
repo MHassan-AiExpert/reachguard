@@ -29,7 +29,7 @@ Outage: rg-tools returns a provider error, stages retry with backoff and eventua
 
 No LLM fixtures ship yet. To record: run a live pass with a key (`LLM_MODE=live`), then store each prompt-hash response in `services/rg-tools/test/fixtures/llm/` so `LLM_MODE=replay` can serve it. Until then, replay mode reports every agent call as unavailable and the evaluation marks those parts "not run".
 
-If WF-09 is interrupted between inserting an event and acting on it, replaying the same provider event is safe: the event insert is idempotent, and the replay recovers the follow-up step.
+A reply that matches the unsubscribe keyword rule is suppressed before the classifier is called, so a model outage cannot lose it. If WF-09 fails after inserting any other event and before acting on it, a provider retry is treated as a duplicate and does not redo the follow-up step: check n8n's failed executions and handle that lead by hand.
 
 ## Adding a campaign, domain or inbox
 

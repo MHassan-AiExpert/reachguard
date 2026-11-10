@@ -33,7 +33,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT (SELECT value #>> '{}' FROM settings WHERE key = 'telegram_approver_chat_ids') AS ids",
+        "query": "SELECT (SELECT CASE jsonb_typeof(value)\n                          WHEN 'array' THEN (SELECT string_agg(x, ',') FROM jsonb_array_elements_text(value) x)\n                          ELSE value #>> '{}' END\n                     FROM settings WHERE key = 'telegram_approver_chat_ids') AS ids",
         "options": {}
       },
       "credentials": {

@@ -25,6 +25,11 @@ describe('WF-02 hygiene', () => {
     expect(w.name).toMatch(/^WF-02 /);
     expect(text(w)).toContain("claim_leads('received'");
   });
+  it('counts every lead already past hygiene towards the company contact cap, not only those already queued', () => {
+    const q = (w.nodes.find((n) => n.name === 'H7 Company limits')!.parameters as { query: string }).query;
+    for (const st of ['verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued']) expect(q).toContain(`'${st}'`);
+    expect(q).not.toContain("'received'");
+  });
   it('runs H1..H10 in spec order: syntax, suppression, flags, region, normalize, company, limits, DNS, verifier', () => {
     const order = ['H1 Classify email', 'H2 Suppression', 'H4 Region rule', 'H5 Normalize', 'H6 Resolve company', 'H7 Company limits', 'H8 DNS MX', 'H9 Verify primary'];
     const idx = order.map((n) => pos(w, n));

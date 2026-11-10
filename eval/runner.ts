@@ -20,7 +20,10 @@ export const SUITES: Record<string, (ctx: Ctx) => Promise<SuiteResult>> = {
 
 const gitSha = (): string => {
   try {
-    return execSync('git rev-parse --short HEAD', { cwd: repoRoot }).toString().trim();
+    const sha = execSync('git rev-parse --short HEAD', { cwd: repoRoot }).toString().trim();
+    // Uncommitted changes mean the report describes code that is not that commit.
+    const dirty = execSync('git status --porcelain --untracked-files=no -- . ":!docs/EVAL_REPORT.md"', { cwd: repoRoot }).toString().trim() !== '';
+    return dirty ? `${sha}-dirty` : sha;
   } catch {
     return 'unknown';
   }

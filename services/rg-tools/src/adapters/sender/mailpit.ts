@@ -34,7 +34,11 @@ export function createMailpitSender(transport: Pick<Transporter, 'sendMail'>): S
   };
 }
 
+const LOCAL_SINKS = new Set(['mailpit', 'localhost', '127.0.0.1', '::1']);
+
 export function createMailpitSenderFromConfig(config: Config): SenderAdapter {
+  // Sandbox sends skip the live-send gate, so they may only ever reach a local sink, never a real relay.
+  if (!LOCAL_SINKS.has(config.smtpHost)) throw new Error(`sandbox mode only delivers to a local SMTP sink (mailpit, localhost), not ${config.smtpHost}`);
   return createMailpitSender(
     nodemailer.createTransport({
       host: config.smtpHost,

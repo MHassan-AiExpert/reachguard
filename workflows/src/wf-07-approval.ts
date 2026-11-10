@@ -15,7 +15,11 @@ export const APPROVAL_POLICY_FN = `function needsApproval(i) {
   return { require: reasons.length > 0, reasons };
 }`;
 
-const SEND_CHAT = `(SELECT value #>> '{}' FROM settings WHERE key = 'telegram_approver_chat_ids')`;
+/** Approver chat ids as a comma list. The setting is a JSON array (scripts/seed-settings.sh); a plain string also works. */
+const SEND_CHAT = `(SELECT CASE jsonb_typeof(value)
+                          WHEN 'array' THEN (SELECT string_agg(x, ',') FROM jsonb_array_elements_text(value) x)
+                          ELSE value #>> '{}' END
+                     FROM settings WHERE key = 'telegram_approver_chat_ids')`;
 
 export function buildWf07a(): N8nWorkflow {
   const name = 'WF-07a Approval Dispatcher';

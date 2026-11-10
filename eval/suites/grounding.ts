@@ -66,8 +66,10 @@ export async function runGrounding(ctx: Ctx): Promise<SuiteResult> {
     });
     const final = o.ok ? verdict(o.output, pre.get(d.id)!, d.copy.sequence, 0).to : 'error';
     const passedQa = final === 'qa_passed';
-    cases.push({ id: d.id, passed: passedQa === d.expect_pass, expected: { category: d.category, qa_passed: d.expect_pass }, actual: o.ok ? { final, judge: o.output.verdict } : { error: o.reason } });
+    // A failed call is a failed case, never a catch: only a real verdict can be right.
+    cases.push({ id: d.id, passed: o.ok && passedQa === d.expect_pass, expected: { category: d.category, qa_passed: d.expect_pass }, actual: o.ok ? { final, judge: o.output.verdict } : { error: o.reason } });
   }
+  const errored = cases.filter((c) => (c.actual as { error?: string }).error !== undefined).length;
   const bad = drafts.filter((d) => !d.expect_pass);
   const badCaught = bad.filter((d) => cases.find((c) => c.id === d.id)!.passed).length;
   const cleanFailed = clean.filter((d) => !cases.find((c) => c.id === d.id)!.passed).length;
@@ -76,6 +78,7 @@ export async function runGrounding(ctx: Ctx): Promise<SuiteResult> {
     metrics: [
       { name: 'bad drafts caught (judge plus code checks)', value: badCaught, display: fraction(badCaught, bad.length) },
       { name: 'clean drafts failed', value: cleanFailed, display: fraction(cleanFailed, clean.length) },
+      { name: 'judge calls that errored', value: errored, display: String(errored) },
     ],
     cases,
   };

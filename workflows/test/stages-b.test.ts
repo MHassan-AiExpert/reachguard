@@ -135,6 +135,13 @@ describe('WF-07a approval dispatcher', () => {
   });
 });
 
+describe('approver ids stored as a JSON array (scripts/seed-settings.sh)', () => {
+  it('both workflows read the array into a plain comma list instead of its JSON text', () => {
+    expect(text(buildWf07a())).toContain('jsonb_array_elements_text');
+    expect(text(buildWf07b())).toContain('jsonb_array_elements_text');
+  });
+});
+
 describe('WF-07b approval callback', () => {
   const w = buildWf07b();
   it('is triggered by Telegram callback queries and messages', () => {

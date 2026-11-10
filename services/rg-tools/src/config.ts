@@ -50,7 +50,8 @@ function required(env: NodeJS.ProcessEnv, key: string): string {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const mode = (env.MODE ?? 'sandbox') as Mode;
+  // No default: forgetting MODE must stop the service, not quietly select the mode that allows data resets.
+  const mode = required(env, 'MODE') as Mode;
   if (mode !== 'sandbox' && mode !== 'live') throw new Error(`MODE must be sandbox or live, got ${mode}`);
   const root = env.RG_ROOT ?? defaultRoot();
   return {

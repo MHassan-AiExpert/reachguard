@@ -150,4 +150,20 @@ BEGIN
   ASSERT (SELECT status FROM leads WHERE id = a) = 'rejected', 'researched -> rejected must be allowed';
 END $$;
 
+-- 12. suppress_lead always records the suppression, even when the lead cannot be moved (a stage changed it first)
+DO $$
+DECLARE a uuid; b uuid; r record;
+BEGIN
+  INSERT INTO leads (campaign_id, idempotency_key, email, company_raw, status)
+  SELECT id, 'sl-a', 'sl-a@acme.com', 'Acme', 'scored' FROM campaigns LIMIT 1 RETURNING id INTO a;
+  SELECT * INTO r FROM suppress_lead(a, 'sl-a@acme.com', 'unsubscribe');
+  ASSERT r.suppressed = 1 AND r.moved = 1, 'suppress_lead inserts and moves a live lead';
+  ASSERT (SELECT status FROM leads WHERE id = a) = 'suppressed', 'lead is suppressed';
+  INSERT INTO leads (campaign_id, idempotency_key, email, company_raw, status)
+  SELECT id, 'sl-b', 'sl-b@acme.com', 'Acme', 'rejected' FROM campaigns LIMIT 1 RETURNING id INTO b;
+  SELECT * INTO r FROM suppress_lead(b, 'sl-b@acme.com', 'unsubscribe');
+  ASSERT r.suppressed = 1 AND r.moved = 0, 'a lead that cannot move still gets its suppression row, and no error';
+  ASSERT is_suppressed('sl-b@acme.com'), 'address is suppressed';
+END $$;
+
 SELECT 'schema tests passed' AS result;

@@ -35,6 +35,12 @@ describe('WF-08a scheduler', () => {
 
 describe('WF-08b dispatcher', () => {
   const w = buildWf08b();
+  it('counts each send attempt and honours backoff, so a failing provider ends in a dead letter instead of retrying forever', () => {
+    const claim = JSON.stringify(w.nodes.map((n) => n.parameters));
+    expect(claim).toContain('attempts = attempts + 1');
+    expect(claim).toContain('next_attempt_at IS NULL OR l.next_attempt_at <= now()');
+    expect(query(w, 'Unlock lead')).toContain('attempts = 0');
+  });
   it('claims due sends itself rather than through claim_leads', () => {
     expect(text(w)).not.toContain('claim_leads');
     expect(query(w, 'Claim leads')).toContain('FROM sends');
@@ -110,7 +116,7 @@ describe('WF-09 events', () => {
     expect(rules).toEqual(['delivered', 'bounce_hard', 'bounce_soft', 'complaint', 'unsubscribe', 'reply', 'meeting_booked']);
   });
   it('suppresses with the right reasons and alerts on a complaint', () => {
-    expect(query(w, 'Suppress hard bounce')).toContain('INSERT INTO suppression');
+    expect(query(w, 'Suppress hard bounce')).toContain('suppress_lead');
     expect(text(w)).toContain('bounce_soft_repeated');
     expect(text(w)).toContain('complaint');
     expect(pos(w, 'Alert complaint')).toBeGreaterThan(-1);
@@ -121,6 +127,26 @@ describe('WF-09 events', () => {
   it('classifies replies with the reply-classifier agent', () => {
     expect(text(w)).toContain('reply-classifier');
     expect(url(w, 'Classify reply')).toContain('/v1/llm/run');
+  });
+  describe('an unsubscribe request is never lost to a model failure', () => {
+    it('suppresses on the keyword rule straight after storing the reply, before any model call', () => {
+      expect(w.connections['Store reply']!.main[0]!.map((c) => c.node)).toEqual(['Rule hit?']);
+      const outs = w.connections['Rule hit?']!.main;
+      expect(outs[0]!.map((c) => c.node)).toEqual(['Suppress rule hit']);
+      expect(outs[1]!.map((c) => c.node)).toEqual(['Classify reply']);
+      expect(query(w, 'Suppress rule hit')).toContain('suppress_lead');
+    });
+    it('lets a failed classifier call through as data and falls back to human review', () => {
+      expect(JSON.stringify(node(w, 'Classify reply').parameters.options)).toContain('neverError');
+      const code = (node(w, 'Apply overrides').parameters as { jsCode: string }).jsCode;
+      expect(code).toContain("'human_review'");
+      expect(code).toContain('$json.body');
+    });
+    it('suppresses through the suppress_lead function so a stale lead status cannot roll the suppression back', () => {
+      for (const n of ['Suppress hard bounce', 'Suppress soft bounces', 'Suppress complaint', 'Suppress unsubscribe', 'Suppress reply']) {
+        expect(query(w, n)).toContain('suppress_lead');
+      }
+    });
   });
   describe('reply routing overrides', () => {
     type Out = { classification: string; confidence: number; unsubscribe_intent: boolean; next_action: string };

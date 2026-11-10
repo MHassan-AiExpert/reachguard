@@ -123,6 +123,7 @@ const CLAIM_DUE_SENDS = `WITH cand AS (
    WHERE s.status = 'scheduled' AND s.scheduled_at <= now()
      AND l.status IN ('queued', 'in_sequence')
      AND (l.locked_at IS NULL OR l.locked_at < now() - interval '10 minutes')
+     AND (l.next_attempt_at IS NULL OR l.next_attempt_at <= now())
    ORDER BY s.lead_id, s.step),
 due AS (
   SELECT c.send_id, c.lead_id, c.step, c.scheduled_at
@@ -131,7 +132,7 @@ due AS (
    LIMIT 10
      FOR UPDATE OF l SKIP LOCKED),
 lk AS (
-  UPDATE leads SET locked_by = $1, locked_at = now() WHERE id IN (SELECT lead_id FROM due) RETURNING id)
+  UPDATE leads SET locked_by = $1, locked_at = now(), attempts = attempts + 1 WHERE id IN (SELECT lead_id FROM due) RETURNING id)
 SELECT d.lead_id AS id, d.send_id, d.step, l.campaign_id, l.email::text AS email, l.status::text AS lead_status
   FROM due d JOIN leads l ON l.id = d.lead_id
  ORDER BY d.scheduled_at`;
@@ -226,7 +227,7 @@ if (!s.sent && code >= 500) throw new Error('send failed: ' + code + ' ' + JSON.
       f.add(
         postgres(
           'Unlock lead',
-          `UPDATE leads SET locked_by = NULL, locked_at = NULL WHERE id = $1::uuid RETURNING id`,
+          `UPDATE leads SET locked_by = NULL, locked_at = NULL, attempts = 0, next_attempt_at = NULL WHERE id = $1::uuid RETURNING id`,
           '[$("Init state").first().json.lead.id]',
         ),
       );

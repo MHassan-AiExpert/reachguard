@@ -18,19 +18,8 @@ export const ROUTE_REPLY_FN = `function routeReply(out, ruleHit) {
 
 const ALERT_CHAT = `(SELECT value #>> '{}' FROM settings WHERE key = 'telegram_alert_chat_id')`;
 
-/** Statuses a suppression may move a lead out of; 0002 allows suppressed from each. */
-const SUPPRESSIBLE = ['received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'];
-
-/** Suppress the email, cancel scheduled sends, and move the lead to suppressed. $1 lead id, $2 email, $3 reason. */
-const SUPPRESS_SQL = `WITH sup AS (
-  INSERT INTO suppression (kind, value, reason, source)
-  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),
-cx AS (
-  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),
-mv AS (
-  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')
-    FROM leads l WHERE l.id = $1::uuid AND l.status IN (${SUPPRESSIBLE.map((x) => `'${x}'`).join(', ')}))
-SELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved`;
+/** Suppress the email, cancel scheduled sends, and move the lead to suppressed (db/migrations/0004). $1 lead id, $2 email, $3 reason. */
+const SUPPRESS_SQL = `SELECT suppressed, cancelled, moved FROM suppress_lead($1::uuid, $2, $3)`;
 
 const EVENT = `$('Insert event').first().json`;
 const NORM = `$('Unpack event').first().json`;
@@ -156,18 +145,22 @@ SELECT (SELECT count(*) FROM u) AS flagged, (SELECT domain FROM u LIMIT 1) AS do
       `[${EVENT}.lead_id, ${EVENT}.send_id ?? null, ${EVENT}.event_id, ${NORM}.body ?? ""]`,
     ),
   );
+  f.add(ifNode('Rule hit?', `${NORM}.unsubscribe_rule_hit === true`));
+  f.add(postgres('Suppress rule hit', SUPPRESS_SQL, suppressParams('unsubscribe_rule')));
   f.add(
     http(
       'Classify reply',
       '/v1/llm/run',
-      `{ agent: "reply-classifier", lead_id: ${EVENT}.lead_id, variables: { subject: $json.subject, reply_body: ${NORM}.body ?? "" } }`,
+      `{ agent: "reply-classifier", lead_id: ${EVENT}.lead_id, variables: { subject: $('Store reply').first().json.subject, reply_body: ${NORM}.body ?? "" } }`,
+      { neverError: true },
     ),
   );
   f.add(
     code(
       'Apply overrides',
       `${ROUTE_REPLY_FN}
-const out = $json.output;
+// The gateway can answer 429 (budget), 502 (provider) or 422 (invalid output); then there is no model verdict.
+const out = ($json.body && $json.body.output) || { classification: 'other', confidence: 0, summary: 'Classifier unavailable (HTTP ' + ($json.statusCode ?? '?') + '); read this reply yourself.', suggested_response: null, unsubscribe_intent: false, next_action: 'human_review' };
 const r = routeReply(out, ${NORM}.unsubscribe_rule_hit === true);
 return [{ json: { out, next_action: r.next_action, override_reason: r.reason } }];`,
     ),
@@ -250,7 +243,10 @@ SELECT transition_lead(l.id, 'in_sequence'::lead_status, 'completed'::lead_statu
   f.connect('Count soft bounces', 'Soft bounces repeated?');
   f.connect('Soft bounces repeated?', 'Suppress soft bounces', 0);
   f.chain('Suppress complaint', 'Flag domain', 'Alert complaint');
-  f.chain('Store reply', 'Classify reply', 'Apply overrides', 'Save classification', 'Route reply action');
+  f.connect('Store reply', 'Rule hit?');
+  f.connect('Rule hit?', 'Suppress rule hit', 0);
+  f.connect('Rule hit?', 'Classify reply', 1);
+  f.chain('Classify reply', 'Apply overrides', 'Save classification', 'Route reply action');
   f.connect('Route reply action', 'Suppress reply', 0);
   f.connect('Route reply action', 'Mark replied', 1);
   f.connect('Route reply action', 'Mark replied', 2);

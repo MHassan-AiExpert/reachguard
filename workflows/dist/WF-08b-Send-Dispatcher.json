@@ -117,7 +117,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH cand AS (\n  SELECT DISTINCT ON (s.lead_id) s.id AS send_id, s.lead_id, s.step, s.scheduled_at\n    FROM sends s JOIN leads l ON l.id = s.lead_id\n   WHERE s.status = 'scheduled' AND s.scheduled_at <= now()\n     AND l.status IN ('queued', 'in_sequence')\n     AND (l.locked_at IS NULL OR l.locked_at < now() - interval '10 minutes')\n   ORDER BY s.lead_id, s.step),\ndue AS (\n  SELECT c.send_id, c.lead_id, c.step, c.scheduled_at\n    FROM cand c JOIN leads l ON l.id = c.lead_id\n   ORDER BY c.scheduled_at\n   LIMIT 10\n     FOR UPDATE OF l SKIP LOCKED),\nlk AS (\n  UPDATE leads SET locked_by = $1, locked_at = now() WHERE id IN (SELECT lead_id FROM due) RETURNING id)\nSELECT d.lead_id AS id, d.send_id, d.step, l.campaign_id, l.email::text AS email, l.status::text AS lead_status\n  FROM due d JOIN leads l ON l.id = d.lead_id\n ORDER BY d.scheduled_at",
+        "query": "WITH cand AS (\n  SELECT DISTINCT ON (s.lead_id) s.id AS send_id, s.lead_id, s.step, s.scheduled_at\n    FROM sends s JOIN leads l ON l.id = s.lead_id\n   WHERE s.status = 'scheduled' AND s.scheduled_at <= now()\n     AND l.status IN ('queued', 'in_sequence')\n     AND (l.locked_at IS NULL OR l.locked_at < now() - interval '10 minutes')\n     AND (l.next_attempt_at IS NULL OR l.next_attempt_at <= now())\n   ORDER BY s.lead_id, s.step),\ndue AS (\n  SELECT c.send_id, c.lead_id, c.step, c.scheduled_at\n    FROM cand c JOIN leads l ON l.id = c.lead_id\n   ORDER BY c.scheduled_at\n   LIMIT 10\n     FOR UPDATE OF l SKIP LOCKED),\nlk AS (\n  UPDATE leads SET locked_by = $1, locked_at = now(), attempts = attempts + 1 WHERE id IN (SELECT lead_id FROM due) RETURNING id)\nSELECT d.lead_id AS id, d.send_id, d.step, l.campaign_id, l.email::text AS email, l.status::text AS lead_status\n  FROM due d JOIN leads l ON l.id = d.lead_id\n ORDER BY d.scheduled_at",
         "options": {
           "queryReplacement": "={{ [\"WF-08b Send Dispatcher\" + \":\" + $execution.id] }}"
         }
@@ -483,7 +483,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE leads SET locked_by = NULL, locked_at = NULL WHERE id = $1::uuid RETURNING id",
+        "query": "UPDATE leads SET locked_by = NULL, locked_at = NULL, attempts = 0, next_attempt_at = NULL WHERE id = $1::uuid RETURNING id",
         "options": {
           "queryReplacement": "={{ [$(\"Init state\").first().json.lead.id] }}"
         }

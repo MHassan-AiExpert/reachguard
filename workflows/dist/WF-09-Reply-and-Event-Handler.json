@@ -609,7 +609,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "query": "SELECT suppressed, cancelled, moved FROM suppress_lead($1::uuid, $2, $3)",
         "options": {
           "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"bounce_hard\"] }}"
         }
@@ -686,7 +686,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "query": "SELECT suppressed, cancelled, moved FROM suppress_lead($1::uuid, $2, $3)",
         "options": {
           "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"bounce_soft_repeated\"] }}"
         }
@@ -709,7 +709,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "query": "SELECT suppressed, cancelled, moved FROM suppress_lead($1::uuid, $2, $3)",
         "options": {
           "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"complaint\"] }}"
         }
@@ -781,7 +781,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "query": "SELECT suppressed, cancelled, moved FROM suppress_lead($1::uuid, $2, $3)",
         "options": {
           "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"unsubscribe\"] }}"
         }
@@ -821,6 +821,60 @@
       ]
     },
     {
+      "id": "beaaf336-85a4-3eed-766d-ed2b7b0710a9",
+      "name": "Rule hit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-242827556e70",
+              "leftValue": "={{ $('Unpack event').first().json.unsubscribe_rule_hit === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3900,
+        320
+      ]
+    },
+    {
+      "id": "2d20475c-e010-dc29-b201-68fca0e29cf9",
+      "name": "Suppress rule hit",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT suppressed, cancelled, moved FROM suppress_lead($1::uuid, $2, $3)",
+        "options": {
+          "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"unsubscribe_rule\"] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        4160,
+        320
+      ]
+    },
+    {
       "id": "126858a3-f629-dbce-3afe-944f5e17fd6f",
       "name": "Classify reply",
       "type": "n8n-nodes-base.httpRequest",
@@ -832,9 +886,15 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ agent: \"reply-classifier\", lead_id: $('Insert event').first().json.lead_id, variables: { subject: $json.subject, reply_body: $('Unpack event').first().json.body ?? \"\" } }) }}",
+        "jsonBody": "={{ JSON.stringify({ agent: \"reply-classifier\", lead_id: $('Insert event').first().json.lead_id, variables: { subject: $('Store reply').first().json.subject, reply_body: $('Unpack event').first().json.body ?? \"\" } }) }}",
         "options": {
-          "timeout": 60000
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
         }
       },
       "credentials": {
@@ -847,8 +907,8 @@
       "maxTries": 3,
       "waitBetweenTries": 2000,
       "position": [
-        3900,
-        320
+        4160,
+        480
       ]
     },
     {
@@ -859,11 +919,11 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "function routeReply(out, ruleHit) {\n  if (ruleHit === true) return { next_action: 'suppress', reason: 'unsubscribe_rule' };\n  if (out.unsubscribe_intent === true || out.classification === 'unsubscribe') return { next_action: 'suppress', reason: 'model_unsubscribe' };\n  if (!(Number(out.confidence) >= 0.7)) return { next_action: 'human_review', reason: 'low_confidence' };\n  return { next_action: out.next_action, reason: 'model' };\n}\nconst out = $json.output;\nconst r = routeReply(out, $('Unpack event').first().json.unsubscribe_rule_hit === true);\nreturn [{ json: { out, next_action: r.next_action, override_reason: r.reason } }];"
+        "jsCode": "function routeReply(out, ruleHit) {\n  if (ruleHit === true) return { next_action: 'suppress', reason: 'unsubscribe_rule' };\n  if (out.unsubscribe_intent === true || out.classification === 'unsubscribe') return { next_action: 'suppress', reason: 'model_unsubscribe' };\n  if (!(Number(out.confidence) >= 0.7)) return { next_action: 'human_review', reason: 'low_confidence' };\n  return { next_action: out.next_action, reason: 'model' };\n}\n// The gateway can answer 429 (budget), 502 (provider) or 422 (invalid output); then there is no model verdict.\nconst out = ($json.body && $json.body.output) || { classification: 'other', confidence: 0, summary: 'Classifier unavailable (HTTP ' + ($json.statusCode ?? '?') + '); read this reply yourself.', suggested_response: null, unsubscribe_intent: false, next_action: 'human_review' };\nconst r = routeReply(out, $('Unpack event').first().json.unsubscribe_rule_hit === true);\nreturn [{ json: { out, next_action: r.next_action, override_reason: r.reason } }];"
       },
       "position": [
-        4160,
-        320
+        4420,
+        0
       ]
     },
     {
@@ -885,7 +945,7 @@
         }
       },
       "position": [
-        4420,
+        4680,
         0
       ]
     },
@@ -1039,7 +1099,7 @@
         }
       },
       "position": [
-        4680,
+        4940,
         0
       ]
     },
@@ -1050,7 +1110,7 @@
       "typeVersion": 2.5,
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH sup AS (\n  INSERT INTO suppression (kind, value, reason, source)\n  VALUES ('email', $2::citext, $3, 'WF-09') ON CONFLICT DO NOTHING RETURNING 1),\ncx AS (\n  UPDATE sends SET status = 'cancelled', failure = $3 WHERE lead_id = $1::uuid AND status = 'scheduled' RETURNING 1),\nmv AS (\n  SELECT transition_lead(l.id, l.status, 'suppressed'::lead_status, $3, 'WF-09')\n    FROM leads l WHERE l.id = $1::uuid AND l.status IN ('received', 'verified', 'researched', 'scored', 'drafted', 'qa_passed', 'pending_approval', 'approved', 'queued', 'in_sequence', 'replied', 'needs_review', 'completed'))\nSELECT (SELECT count(*) FROM sup) AS suppressed, (SELECT count(*) FROM cx) AS cancelled, (SELECT count(*) FROM mv) AS moved",
+        "query": "SELECT suppressed, cancelled, moved FROM suppress_lead($1::uuid, $2, $3)",
         "options": {
           "queryReplacement": "={{ [$('Insert event').first().json.lead_id, $('Insert event').first().json.email, \"unsubscribe\"] }}"
         }
@@ -1062,7 +1122,7 @@
         }
       },
       "position": [
-        4940,
+        5200,
         0
       ]
     },
@@ -1086,7 +1146,7 @@
       },
       "alwaysOutputData": true,
       "position": [
-        4940,
+        5200,
         160
       ]
     },
@@ -1112,7 +1172,7 @@
       },
       "onError": "continueRegularOutput",
       "position": [
-        5200,
+        5460,
         0
       ]
     },
@@ -1135,7 +1195,7 @@
         }
       },
       "position": [
-        4940,
+        5200,
         320
       ]
     },
@@ -1146,7 +1206,7 @@
       "typeVersion": 1,
       "parameters": {},
       "position": [
-        4940,
+        5200,
         480
       ]
     },
@@ -1440,6 +1500,24 @@
     },
     "Store reply": {
       "main": [
+        [
+          {
+            "node": "Rule hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rule hit?": {
+      "main": [
+        [
+          {
+            "node": "Suppress rule hit",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Classify reply",

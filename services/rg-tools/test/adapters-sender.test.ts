@@ -74,3 +74,12 @@ describe('createSender', () => {
     await expect(live.send(msg)).rejects.toBeInstanceOf(NotConfigured);
   });
 });
+
+describe('sandbox sender safety', () => {
+  it('refuses to deliver to an SMTP host that is not a local sink', () => {
+    expect(() => createSender(testConfig({ mode: 'sandbox', smtpHost: 'smtp.real-relay.net' }))).toThrow(/sandbox.*SMTP/i);
+  });
+  it.each(['mailpit', 'localhost', '127.0.0.1'])('accepts the local sink %s', (host) => {
+    expect(() => createSender(testConfig({ mode: 'sandbox', smtpHost: host }))).not.toThrow();
+  });
+});

@@ -27,7 +27,8 @@ Requirements: Docker, Node 22.
 
 ```bash
 cp .env.example .env            # fill the change-me values; pin N8N_VERSION
-make up                         # postgres, redis, n8n, workers, rg-tools, mailpit, metabase
+make up                         # postgres, redis, n8n, workers, rg-tools, mailpit
+                                # dashboards: docker compose --profile dashboard up -d metabase
 make migrate && make seed
 make build-workflows && make import-workflows
 set -a; . ./.env; set +a
@@ -66,6 +67,15 @@ The evaluation report states which parts ran and which did not, and prints numbe
 | Web search provider | pending |
 
 The committed tests do not run anything against a real vendor, a real mailbox or a running n8n instance. The workflow JSON is generated and linted, and every SQL statement is prepared against the real schema, but the JSON has not been import-tested in n8n.
+
+## Known limitations
+
+- Telegram approvals need n8n reachable on a public HTTPS `WEBHOOK_URL` (a tunnel works) for the Telegram trigger in WF-07b to activate. Without a bot token, workflows that reference the Telegram credential may refuse to activate in n8n; this was not tested, so create the credential before activating.
+- Overdue sends (after a long pause or cap) are not re-planned: if several steps of one lead are overdue they can go out close together and outside the send window. Review the queue before resuming a long pause.
+- State functions do not check lease ownership. A stage that runs longer than the 10-minute lease can see a lead reclaimed by another run. Keep batches small (they are 3 to 5 leads).
+- The per-company contact cap can be exceeded if two workers evaluate leads of the same company at the same instant.
+- Plus-addressed variants (`a+x@co.com`) and internationalized domains are not normalised to one identity or to punycode.
+- The workflows import into n8n 2.46.7 (checked with the n8n CLI); they have not been executed there. Pin `N8N_VERSION` to a version you have tested.
 
 ## Documents
 

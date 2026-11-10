@@ -184,7 +184,7 @@ s.checks.push({ check_name: 'company', outcome: 'pass', provider: 'postgres', de
           `SELECT
   (SELECT count(*) FROM leads
     WHERE company_id = $1::uuid AND id <> $2::uuid
-      AND status IN ('queued','in_sequence','replied','completed')) AS contacted,
+      AND status IN ('verified','researched','scored','drafted','qa_passed','pending_approval','approved','queued','in_sequence','replied','completed')) AS contacted,
   EXISTS (SELECT 1 FROM sends s JOIN leads l ON l.id = s.lead_id
            WHERE l.company_id = $1::uuid AND l.id <> $2::uuid AND s.status = 'sent'
              AND s.sent_at > now() - make_interval(days => ${h.company_cooldown_days})) AS in_cooldown`,
