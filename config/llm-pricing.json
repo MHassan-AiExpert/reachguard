@@ -1,0 +1,7 @@
+{
+  "_note": "Fill input/output prices (USD per 1M tokens) from each provider's official pricing page. A null price records cost as 0 and marks the call as unpriced in the logs.",
+  "models": {
+    "google:gemini-2.5-flash": { "input_per_1m_usd": null, "output_per_1m_usd": null },
+    "google:gemini-2.5-pro": { "input_per_1m_usd": null, "output_per_1m_usd": null }
+  }
+}

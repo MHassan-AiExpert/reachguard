@@ -1,0 +1,43 @@
+hygiene:
+  allow_role_based: false
+  allow_free_providers: false
+  allow_catch_all: true            # catch-all leads are capped at tier B
+  max_contacts_per_company: 2
+  company_cooldown_days: 90
+  company_fuzzy_threshold: 0.85
+  dns_cache_hours: 24
+  role_prefixes: [info, sales, support, admin, contact, hello, office, team, help, billing, hr, jobs, marketing, noreply, no-reply]
+scoring:
+  weights: { industry_fit: 0.30, size_fit: 0.15, role_fit: 0.25, trigger_strength: 0.20, evidence_quality: 0.10 }
+  tier_a_min: 80
+  tier_b_min: 60
+  cap_tier_when: { catch_all: B, thin_evidence: B }
+qa:
+  max_revisions: 2
+  step1_words: [50, 110]
+  followup_words: [30, 80]
+  subject_max_chars: 60
+  similarity_threshold: 0.60       # Jaccard on 5-word shingles vs last 200 drafts in campaign
+  spam_risk_max: 0.35
+  banned_phrases: ["act now", "limited time", "guarantee", "risk-free", "100% free", "click here", "no obligation", "i hope this email finds you well", "just circling back", "dear sir"]
+approval:
+  require_for_tiers: [A]
+  require_below_judge_confidence: 0.7
+  reminder_hours: 24
+  expire_hours: 72
+sending:
+  windows: { days: [Tue, Wed, Thu], local_start: "09:00", local_end: "11:30" }
+  jitter_minutes: 40
+  sequence_delays_business_days: [0, 3, 7]
+  inbox_daily_limit: 30
+  campaign_daily_cap: 150
+guardian:
+  min_sends_for_rate: 30
+  hard_bounce_rate_pause: 0.02
+  complaint_rate_pause: 0.001
+  soft_bounce_suppress_after: 3
+budget:
+  llm_daily_usd: 5
+retention:
+  raw_payload_days: 90
+  events_days: 365
