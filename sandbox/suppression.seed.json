@@ -1,0 +1,17 @@
+[
+  {
+    "kind": "email",
+    "value": "elena.vasquez@verdant-goods.example",
+    "reason": "unsubscribe"
+  },
+  {
+    "kind": "domain",
+    "value": "suppressed-corp.example",
+    "reason": "manual"
+  },
+  {
+    "kind": "email_hash",
+    "value": "3c69dfd74e2f1ca1de903cd347112e1475d98c73087ddaafcf1a50f3a904e4b4",
+    "reason": "erasure"
+  }
+]

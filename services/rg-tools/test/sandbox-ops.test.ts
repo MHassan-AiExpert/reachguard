@@ -44,9 +44,10 @@ describe('POST /v1/sandbox/reset', () => {
 });
 
 describe('POST /v1/sandbox/seed', () => {
-  function dataDir(leads: unknown): string {
+  function dataDir(leads: unknown, suppression?: unknown): string {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'rg-sbx-'));
-    writeFileSync(path.join(dir, 'leads.json'), JSON.stringify(leads));
+    writeFileSync(path.join(dir, 'leads.seed.json'), JSON.stringify(leads));
+    if (suppression) writeFileSync(path.join(dir, 'suppression.seed.json'), JSON.stringify(suppression));
     return dir;
   }
 
@@ -57,7 +58,8 @@ describe('POST /v1/sandbox/seed', () => {
       return new Response(JSON.stringify({ results: [{ status: 'accepted' }, { status: 'accepted' }, { status: 'duplicate' }] }), { status: 200 });
     }) as unknown as typeof fetch;
     const leads = [{ email: 'a@x.com' }, { email: 'b@x.com' }, { email: 'c@x.com' }];
-    const cfg = testConfig({ sandboxDataDir: dataDir(leads), intakeWebhookUrl: 'http://n8n.test/webhook/rg/intake' });
+    const withExpected = leads.map((l) => ({ ...l, expected: { group: 'ideal_fit' } }));
+    const cfg = testConfig({ sandboxDataDir: dataDir(withExpected), intakeWebhookUrl: 'http://n8n.test/webhook/rg/intake' });
     const app = buildServer({ config: cfg, webhookFetch });
     const res = await app.inject({ method: 'POST', url: '/v1/sandbox/seed', headers: authHeaders, payload: {} });
     expect(res.statusCode).toBe(200);
@@ -66,8 +68,25 @@ describe('POST /v1/sandbox/seed', () => {
     expect(seen[0]!.url).toBe('http://n8n.test/webhook/rg/intake');
     const headers = seen[0]!.init.headers as Record<string, string>;
     const body = seen[0]!.init.body as string;
+    // `expected` is for the eval harness only; the intake contract would reject it and the pipeline must never see it.
     expect(JSON.parse(body)).toEqual(leads);
     expect(headers['X-RG-Signature']).toBe(signWebhook('whsec', body, headers['X-RG-Timestamp']!));
+  });
+
+  it('re-applies the suppression seed before submitting leads, because reset clears it', async () => {
+    const db = fakeDb();
+    const calls: { text: string; params: unknown[] }[] = [];
+    const rec: Db = { ...db, query: async (text, params) => (calls.push({ text, params: params ?? [] }), { rows: [], rowCount: 0 } as never), tx: (fn) => fn(rec) };
+    const supp = [{ kind: 'email', value: 'x@y.example', reason: 'unsubscribe' }, { kind: 'domain', value: 'bad.example', reason: 'manual' }];
+    const order: string[] = [];
+    const webhookFetch = (async () => (order.push('intake'), new Response(JSON.stringify({ results: [] }), { status: 200 }))) as unknown as typeof fetch;
+    const app = buildServer({ config: testConfig({ sandboxDataDir: dataDir([{ email: 'a@x.com' }], supp) }), db: rec, webhookFetch });
+    const res = await app.inject({ method: 'POST', url: '/v1/sandbox/seed', headers: authHeaders, payload: {} });
+    expect(res.statusCode).toBe(200);
+    const inserts = calls.filter((c) => /INSERT INTO suppression/.test(c.text));
+    expect(inserts.map((c) => c.params)).toEqual([['email', 'x@y.example', 'unsubscribe'], ['domain', 'bad.example', 'manual']]);
+    expect(inserts[0]!.text).toMatch(/ON CONFLICT[^)]*\)?\s*DO NOTHING/);
+    expect(res.json()).toMatchObject({ suppression_seeded: 2 });
   });
 
   it('refuses in live mode and reports a missing seed file clearly', async () => {
@@ -90,7 +109,7 @@ describe('POST /v1/sandbox/seed', () => {
 describe('POST /v1/sandbox/replies/batch', () => {
   function setup(replies: unknown, leads: Record<string, string>) {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'rg-sbx-'));
-    writeFileSync(path.join(dir, 'replies.json'), JSON.stringify(replies));
+    writeFileSync(path.join(dir, 'replies.labeled.json'), JSON.stringify(replies));
     const delivered: { provider_event_id: string; type: string; email: string; body?: string }[] = [];
     const db: Db = {
       async query(text, params) {

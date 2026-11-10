@@ -1,0 +1,335 @@
+[
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "Thanks for reaching out. We do lose hours every week to this. Can you do a call on Thursday?",
+    "tags": [],
+    "id": "reply-01",
+    "email": "priya.raman@brightloop.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "This is timely. Our ops lead was asking about automating exactly this last week. What does a pilot look like?",
+    "tags": [],
+    "id": "reply-02",
+    "email": "daniel.okafor@cartwheel-goods.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "Interesting. Send me a couple of times that work and a rough price range.",
+    "tags": [],
+    "id": "reply-03",
+    "email": "maya.lindqvist@northfield-analytics.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "Yes, curious. We have about 40 orders a day going through spreadsheets. Happy to chat.",
+    "tags": [],
+    "id": "reply-04",
+    "email": "tomas.herrera@pinecrest-outfitters.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "Good timing, we are hiring for this role right now. A call next week would be great.",
+    "tags": [],
+    "id": "reply-05",
+    "email": "aisha.rahman@lumenpath.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "Sounds relevant. Can you share one example of a workflow you built for a team our size?",
+    "tags": [],
+    "id": "reply-06",
+    "email": "liam.oconnor@sparrowhawk-media.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "I am open to a quick intro call. Here is my calendar link: https://cal.example/intro-30",
+    "tags": [],
+    "id": "reply-07",
+    "email": "grace.whitfield@tidewater-home.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "We have been meaning to fix our reporting. Let us talk. Mornings work best.",
+    "tags": [],
+    "id": "reply-08",
+    "email": "noah.bennett@quillbase.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "Looks useful. Who would we work with on your side, and how long does setup take?",
+    "tags": [],
+    "id": "reply-09",
+    "email": "sofia.marin@harborlight-creative.example"
+  },
+  {
+    "expected_classification": "interested",
+    "unsubscribe_intent": false,
+    "body": "Yes please, forward me details and I will loop in our COO.",
+    "tags": [],
+    "id": "reply-10",
+    "email": "hannah.doyle@kestrel-works.example"
+  },
+  {
+    "expected_classification": "objection",
+    "unsubscribe_intent": false,
+    "body": "We already have a developer who handles this internally, so I am not sure we need outside help.",
+    "tags": [],
+    "id": "reply-11",
+    "email": "rina.patel@stackhaven.example"
+  },
+  {
+    "expected_classification": "objection",
+    "unsubscribe_intent": false,
+    "body": "Looks expensive for a company our size. What does it cost?",
+    "tags": [],
+    "id": "reply-12",
+    "email": "oscar.lindgren@willowmark-agency.example"
+  },
+  {
+    "expected_classification": "objection",
+    "unsubscribe_intent": false,
+    "body": "We tried an automation agency last year and it did not go well. Why would this be different?",
+    "tags": [],
+    "id": "reply-13",
+    "email": "zoe.carter@emberline-shop.example"
+  },
+  {
+    "expected_classification": "objection",
+    "unsubscribe_intent": false,
+    "body": "We are on a different stack and I do not want to migrate. Does this work with it?",
+    "tags": [],
+    "id": "reply-14",
+    "email": "victor.nguyen@fernhill-digital.example"
+  },
+  {
+    "expected_classification": "objection",
+    "unsubscribe_intent": false,
+    "body": "I do not see how this would save us more than it costs. Convince me.",
+    "tags": [],
+    "id": "reply-15",
+    "email": "oliver.hart@copperfield-labs.example"
+  },
+  {
+    "expected_classification": "objection",
+    "unsubscribe_intent": false,
+    "body": "Security is a big concern for us. Where does our data go?",
+    "tags": [],
+    "id": "reply-16",
+    "email": "camille.dubois@atelier-nord.example"
+  },
+  {
+    "expected_classification": "not_now",
+    "unsubscribe_intent": false,
+    "body": "Not a priority this quarter. Reach out again in January.",
+    "tags": [],
+    "id": "reply-17",
+    "email": "sanne.vermeulen@tulipstack.example"
+  },
+  {
+    "expected_classification": "not_now",
+    "unsubscribe_intent": false,
+    "body": "We are in the middle of a migration. Can you check back after the holidays?",
+    "tags": [],
+    "id": "reply-18",
+    "email": "priya.raman@brightloop.example"
+  },
+  {
+    "expected_classification": "not_now",
+    "unsubscribe_intent": false,
+    "body": "Interesting, but our budget is frozen until next fiscal year. Try me in April.",
+    "tags": [],
+    "id": "reply-19",
+    "email": "daniel.okafor@cartwheel-goods.example"
+  },
+  {
+    "expected_classification": "not_now",
+    "unsubscribe_intent": false,
+    "body": "Busy season for us. Please follow up in two months.",
+    "tags": [],
+    "id": "reply-20",
+    "email": "maya.lindqvist@northfield-analytics.example"
+  },
+  {
+    "expected_classification": "not_now",
+    "unsubscribe_intent": false,
+    "body": "Maybe later. We just hired someone to handle ops, so let us see how that goes first.",
+    "tags": [],
+    "id": "reply-21",
+    "email": "tomas.herrera@pinecrest-outfitters.example"
+  },
+  {
+    "expected_classification": "not_now",
+    "unsubscribe_intent": false,
+    "body": "Not right now, thanks. Circle back in Q1.",
+    "tags": [],
+    "id": "reply-22",
+    "email": "aisha.rahman@lumenpath.example"
+  },
+  {
+    "expected_classification": "unsubscribe",
+    "unsubscribe_intent": true,
+    "body": "stop",
+    "tags": [
+      "blunt"
+    ],
+    "id": "reply-23",
+    "email": "liam.oconnor@sparrowhawk-media.example"
+  },
+  {
+    "expected_classification": "unsubscribe",
+    "unsubscribe_intent": true,
+    "body": "Hi, thanks for the note but please remove me from your list.",
+    "tags": [
+      "polite"
+    ],
+    "id": "reply-24",
+    "email": "grace.whitfield@tidewater-home.example"
+  },
+  {
+    "expected_classification": "unsubscribe",
+    "unsubscribe_intent": true,
+    "body": "Por favor, no me escriban más. Gracias.",
+    "tags": [
+      "spanish"
+    ],
+    "id": "reply-25",
+    "email": "noah.bennett@quillbase.example"
+  },
+  {
+    "expected_classification": "unsubscribe",
+    "unsubscribe_intent": true,
+    "body": "This sounds really interesting and we may well need it. Unfortunately I get too much email, so please take me off your list and do not contact me again.",
+    "tags": [
+      "hidden"
+    ],
+    "id": "reply-26",
+    "email": "sofia.marin@harborlight-creative.example"
+  },
+  {
+    "expected_classification": "unsubscribe",
+    "unsubscribe_intent": true,
+    "body": "Unsubscribe me immediately or I will report this as spam.",
+    "tags": [
+      "blunt"
+    ],
+    "id": "reply-27",
+    "email": "hannah.doyle@kestrel-works.example"
+  },
+  {
+    "expected_classification": "out_of_office",
+    "unsubscribe_intent": false,
+    "body": "Thank you for your email. I am out of the office until 24 November with limited access to email. For urgent matters contact reception.",
+    "tags": [],
+    "id": "reply-28",
+    "email": "rina.patel@stackhaven.example"
+  },
+  {
+    "expected_classification": "out_of_office",
+    "unsubscribe_intent": false,
+    "body": "Automatic reply: I am on annual leave and will return on Monday 30 November.",
+    "tags": [],
+    "id": "reply-29",
+    "email": "oscar.lindgren@willowmark-agency.example"
+  },
+  {
+    "expected_classification": "out_of_office",
+    "unsubscribe_intent": false,
+    "body": "I am currently travelling and will respond when I am back on 18 November.",
+    "tags": [],
+    "id": "reply-30",
+    "email": "zoe.carter@emberline-shop.example"
+  },
+  {
+    "expected_classification": "out_of_office",
+    "unsubscribe_intent": false,
+    "body": "Auto-reply: I have left the company. Please direct enquiries to the main office line.",
+    "tags": [],
+    "id": "reply-31",
+    "email": "victor.nguyen@fernhill-digital.example"
+  },
+  {
+    "expected_classification": "wrong_person",
+    "unsubscribe_intent": false,
+    "body": "I am not the right person for this. Try our Head of Operations, Marta Silva (marta.silva@brightloop.example).",
+    "tags": [
+      "referral"
+    ],
+    "referral": "marta.silva@brightloop.example",
+    "id": "reply-32",
+    "email": "oliver.hart@copperfield-labs.example"
+  },
+  {
+    "expected_classification": "wrong_person",
+    "unsubscribe_intent": false,
+    "body": "You have the wrong person. I do not work on anything related to this.",
+    "tags": [],
+    "id": "reply-33",
+    "email": "camille.dubois@atelier-nord.example"
+  },
+  {
+    "expected_classification": "wrong_person",
+    "unsubscribe_intent": false,
+    "body": "Wrong contact. I handle finance only.",
+    "tags": [],
+    "id": "reply-34",
+    "email": "sanne.vermeulen@tulipstack.example"
+  },
+  {
+    "expected_classification": "bounce",
+    "unsubscribe_intent": false,
+    "body": "Delivery Status Notification (Failure). 550 5.1.1 The email account that you tried to reach does not exist.",
+    "tags": [],
+    "id": "reply-35",
+    "email": "priya.raman@brightloop.example"
+  },
+  {
+    "expected_classification": "bounce",
+    "unsubscribe_intent": false,
+    "body": "Mail delivery failed: returning message to sender. Remote server said: 552 5.2.2 Mailbox full.",
+    "tags": [],
+    "id": "reply-36",
+    "email": "daniel.okafor@cartwheel-goods.example"
+  },
+  {
+    "expected_classification": "bounce",
+    "unsubscribe_intent": false,
+    "body": "Undeliverable: your message could not be delivered because the recipient address was rejected by the server.",
+    "tags": [],
+    "id": "reply-37",
+    "email": "maya.lindqvist@northfield-analytics.example"
+  },
+  {
+    "expected_classification": "other",
+    "unsubscribe_intent": false,
+    "body": "Who is this?",
+    "tags": [],
+    "id": "reply-38",
+    "email": "tomas.herrera@pinecrest-outfitters.example"
+  },
+  {
+    "expected_classification": "other",
+    "unsubscribe_intent": false,
+    "body": "Sent from my iPhone",
+    "tags": [],
+    "id": "reply-39",
+    "email": "aisha.rahman@lumenpath.example"
+  },
+  {
+    "expected_classification": "other",
+    "unsubscribe_intent": false,
+    "body": "Hmm. Interesting name. Is Muhammad a real person?",
+    "tags": [],
+    "id": "reply-40",
+    "email": "liam.oconnor@sparrowhawk-media.example"
+  }
+]

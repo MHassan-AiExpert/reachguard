@@ -28,6 +28,9 @@ test-service-unit:
 test-workflows:
 	cd workflows && npm test
 
+validate-sandbox:
+	node scripts/validate-sandbox.mjs
+
 check-workflow-sql: build-workflows
 	bash scripts/check-workflow-sql.sh
 

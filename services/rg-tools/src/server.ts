@@ -15,7 +15,7 @@ import { loadPricing, type Pricing } from './lib/pricing.js';
 import { loadQaRules, type QaRules } from './lib/precheck.js';
 import { loadScoringRules, type ScoringRules } from './lib/tier.js';
 import { createPromptStore, type PromptStore } from './lib/prompts.js';
-import { createMemoryCache, systemResolver, type DnsResolver, type MxCache } from './lib/mx.js';
+import { createMemoryCache, systemResolver, sandboxResolver, type DnsResolver, type MxCache } from './lib/mx.js';
 import { registerApprovals } from './routes/approvals.js';
 import { registerAuth } from './routes/auth.js';
 import { registerContracts } from './routes/contracts.js';
@@ -93,7 +93,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   const resolved: ResolvedDeps = {
     ...deps,
     contracts: deps.contracts ?? loadContracts(deps.config.contractsDir),
-    dns: deps.dns ?? systemResolver,
+    dns: deps.dns ?? (deps.config.mode === 'sandbox' ? sandboxResolver : systemResolver),
     txt: deps.txt ?? systemTxtResolver,
     mxCache: deps.mxCache ?? createMemoryCache(),
     lists: deps.lists ?? loadHygieneLists(deps.config.configDir),

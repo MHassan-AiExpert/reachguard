@@ -87,7 +87,7 @@ export function registerSandbox(app: FastifyInstance, deps: ResolvedDeps): void 
     if (!deps.db) return reply.code(503).send({ error: 'db_unavailable' });
     let items: { email: string; type?: (typeof EVENT_TYPES)[number]; body?: string }[];
     try {
-      items = JSON.parse(readFileSync(path.join(deps.config.sandboxDataDir, 'replies.json'), 'utf8'));
+      items = JSON.parse(readFileSync(path.join(deps.config.sandboxDataDir, 'replies.labeled.json'), 'utf8'));
     } catch {
       return reply.code(404).send({ error: 'replies_file_missing' });
     }
@@ -123,16 +123,34 @@ export function registerSandbox(app: FastifyInstance, deps: ResolvedDeps): void 
     return { reset: true };
   });
 
-  /** Submits the seed leads to WF-01 as one properly signed bulk request. */
+  /**
+   * Seeds a demo run: re-applies the suppression seed (reset clears it), then submits the seed leads to WF-01 as one
+   * properly signed bulk request. The eval-only `expected` field is removed, the pipeline must never see it.
+   */
   app.post('/v1/sandbox/seed', async (_req, reply) => {
     if (deps.config.mode !== 'sandbox') return reply.code(403).send({ error: 'sandbox_only' });
-    let raw: string;
+    let leads: Record<string, unknown>[];
     try {
-      raw = JSON.stringify(JSON.parse(readFileSync(path.join(deps.config.sandboxDataDir, 'leads.json'), 'utf8')));
+      leads = JSON.parse(readFileSync(path.join(deps.config.sandboxDataDir, 'leads.seed.json'), 'utf8'));
     } catch {
       return reply.code(404).send({ error: 'seed_file_missing' });
     }
-    const leads = JSON.parse(raw) as unknown[];
+    let suppression: { kind: string; value: string; reason: string }[] = [];
+    try {
+      suppression = JSON.parse(readFileSync(path.join(deps.config.sandboxDataDir, 'suppression.seed.json'), 'utf8'));
+    } catch {
+      /* the suppression seed is optional */
+    }
+    if (suppression.length > 0) {
+      if (!deps.db) return reply.code(503).send({ error: 'db_unavailable' });
+      for (const s of suppression) {
+        await deps.db.query(
+          "INSERT INTO suppression (kind, value, reason, source) VALUES ($1, $2::citext, $3, 'sandbox-seed') ON CONFLICT (kind, value) DO NOTHING",
+          [s.kind, s.value, s.reason],
+        );
+      }
+    }
+    const raw = JSON.stringify(leads.map(({ expected: _expected, ...intake }) => intake));
     const timestamp = Math.floor(Date.now() / 1000).toString();
     try {
       const res = await deps.webhookFetch(deps.config.intakeWebhookUrl, {
@@ -147,9 +165,9 @@ export function registerSandbox(app: FastifyInstance, deps: ResolvedDeps): void 
       });
       if (!res.ok) return reply.code(502).send({ error: 'intake_rejected', status: res.status });
       const body = (await res.json().catch(() => ({}))) as { results?: { status?: string }[] };
-      const count = (s: string): number => (body.results ?? []).filter((r) => r.status === s).length;
+      const count = (st: string): number => (body.results ?? []).filter((r) => r.status === st).length;
       const invalid = (body.results ?? []).filter((r) => r.status !== 'accepted' && r.status !== 'duplicate').length;
-      return { submitted: leads.length, accepted: count('accepted'), duplicate: count('duplicate'), invalid };
+      return { submitted: leads.length, accepted: count('accepted'), duplicate: count('duplicate'), invalid, suppression_seeded: suppression.length };
     } catch (err) {
       return reply.code(502).send({ error: 'intake_unreachable', message: (err as Error).message });
     }

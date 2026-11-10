@@ -43,6 +43,21 @@ export const systemResolver: DnsResolver = {
   resolve4: (d) => dns.resolve4(d),
 };
 
+/**
+ * Sandbox resolver: reserved .example and .test names never resolve, so the seed data would all fail the MX check.
+ * Every domain gets a mail server except those the seed marks as bad with a "nomx-" prefix.
+ */
+export const sandboxResolver: DnsResolver = {
+  async resolveMx(domain) {
+    if (domain.startsWith('nomx-')) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' });
+    return [{ exchange: `mx.${domain}`, priority: 10 }];
+  },
+  async resolve4(domain) {
+    if (domain.startsWith('nomx-')) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' });
+    return ['127.0.0.1'];
+  },
+};
+
 const NO_ANSWER = new Set(['ENODATA', 'ENOTFOUND', 'NXDOMAIN']);
 
 function isNoAnswer(err: unknown): boolean {
