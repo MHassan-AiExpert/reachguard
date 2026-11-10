@@ -83,7 +83,7 @@ ins AS (
          ARRAY(SELECT jsonb_array_elements_text($12::jsonb)), $13::jsonb, 'received'
     FROM c
    WHERE NOT EXISTS (SELECT 1 FROM leads WHERE email = $3::citext)
-  ON CONFLICT (idempotency_key) DO NOTHING
+  ON CONFLICT DO NOTHING
   RETURNING id
 )
 SELECT $15::int AS idx,

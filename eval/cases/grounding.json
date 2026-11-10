@@ -1,0 +1,1452 @@
+[
+  {
+    "id": "g01",
+    "category": "clean",
+    "detectable_by": "none",
+    "expect_pass": true,
+    "note": "a draft with supported claims only",
+    "lead_first_name": "Priya",
+    "company": "Brightloop Digital",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000100",
+        "fact_type": "news",
+        "claim": "Brightloop opened a second studio in Denver and added eight people.",
+        "snippet": "Brightloop opens a second studio in Denver"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000101",
+        "fact_type": "hiring",
+        "claim": "Brightloop is hiring an Operations Coordinator.",
+        "snippet": "Operations Coordinator"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000102",
+        "fact_type": "about",
+        "claim": "Brightloop manages 41 active client accounts.",
+        "snippet": "manages 41 active client accounts"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Brightloop Digital",
+          "body": "Hi Priya,\n\nI noticed that brightloop opened a second studio in Denver and added eight people. I also saw that brightloop is hiring an Operations Coordinator.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Brightloop Digital?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Brightloop opened a second studio in Denver and added eight people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000100"
+            },
+            {
+              "text": "Brightloop is hiring an Operations Coordinator.",
+              "evidence_id": "00000000-0000-4000-8000-000000000101"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g02",
+    "category": "clean",
+    "detectable_by": "none",
+    "expect_pass": true,
+    "note": "a draft with supported claims only",
+    "lead_first_name": "Daniel",
+    "company": "Cartwheel Goods",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000103",
+        "fact_type": "news",
+        "claim": "Cartwheel passed 9,000 orders a month.",
+        "snippet": "Cartwheel passes 9,000 orders a month"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000104",
+        "fact_type": "process",
+        "claim": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+        "snippet": "fulfilment is run from a single shared spreadsheet"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000105",
+        "fact_type": "hiring",
+        "claim": "Cartwheel is hiring a Fulfilment Coordinator.",
+        "snippet": "Fulfilment Coordinator"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Cartwheel Goods",
+          "body": "Hi Daniel,\n\nI noticed that cartwheel passed 9,000 orders a month. I also saw that cartwheel runs fulfilment from a single shared spreadsheet.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Cartwheel Goods?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Cartwheel passed 9,000 orders a month.",
+              "evidence_id": "00000000-0000-4000-8000-000000000103"
+            },
+            {
+              "text": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+              "evidence_id": "00000000-0000-4000-8000-000000000104"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g03",
+    "category": "clean",
+    "detectable_by": "none",
+    "expect_pass": true,
+    "note": "a draft with supported claims only",
+    "lead_first_name": "Maya",
+    "company": "Northfield Analytics",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000106",
+        "fact_type": "news",
+        "claim": "Northfield launched scheduled report delivery.",
+        "snippet": "Northfield launches scheduled report delivery"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000107",
+        "fact_type": "process",
+        "claim": "Northfield onboarding checklists are edited by hand by three people.",
+        "snippet": "lives in a document that three people edit by hand"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000108",
+        "fact_type": "hiring",
+        "claim": "Northfield is hiring a Customer Success Manager.",
+        "snippet": "Customer Success Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Northfield Analytics",
+          "body": "Hi Maya,\n\nI noticed that northfield launched scheduled report delivery. I also saw that northfield onboarding checklists are edited by hand by three people.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Northfield Analytics?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Northfield launched scheduled report delivery.",
+              "evidence_id": "00000000-0000-4000-8000-000000000106"
+            },
+            {
+              "text": "Northfield onboarding checklists are edited by hand by three people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000107"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g04",
+    "category": "clean",
+    "detectable_by": "none",
+    "expect_pass": true,
+    "note": "a draft with supported claims only",
+    "lead_first_name": "Aisha",
+    "company": "Lumenpath Software",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000109",
+        "fact_type": "news",
+        "claim": "Lumenpath shipped calendar sync v2.",
+        "snippet": "Lumenpath ships calendar sync v2"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000110",
+        "fact_type": "growth",
+        "claim": "Lumenpath support tickets grew 60 percent this year.",
+        "snippet": "Support tickets grew 60 percent this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000111",
+        "fact_type": "hiring",
+        "claim": "Lumenpath is hiring a Support Engineer.",
+        "snippet": "Support Engineer"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Lumenpath Software",
+          "body": "Hi Aisha,\n\nI noticed that lumenpath shipped calendar sync v2. I also saw that lumenpath support tickets grew 60 percent this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Lumenpath Software?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Lumenpath shipped calendar sync v2.",
+              "evidence_id": "00000000-0000-4000-8000-000000000109"
+            },
+            {
+              "text": "Lumenpath support tickets grew 60 percent this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000110"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g05",
+    "category": "clean",
+    "detectable_by": "none",
+    "expect_pass": true,
+    "note": "a draft with supported claims only",
+    "lead_first_name": "Liam",
+    "company": "Sparrowhawk Media",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000112",
+        "fact_type": "news",
+        "claim": "Sparrowhawk won three new retail accounts.",
+        "snippet": "Sparrowhawk wins three new retail accounts"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000113",
+        "fact_type": "growth",
+        "claim": "Sparrowhawk headcount grew from 15 to 22 this year.",
+        "snippet": "Headcount grew from 15 to 22 this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000114",
+        "fact_type": "process",
+        "claim": "Sparrowhawk clients approve posts through shared documents and email threads.",
+        "snippet": "approve posts through a shared document and email threads"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Sparrowhawk Media",
+          "body": "Hi Liam,\n\nI noticed that sparrowhawk won three new retail accounts. I also saw that sparrowhawk headcount grew from 15 to 22 this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Sparrowhawk Media?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Sparrowhawk won three new retail accounts.",
+              "evidence_id": "00000000-0000-4000-8000-000000000112"
+            },
+            {
+              "text": "Sparrowhawk headcount grew from 15 to 22 this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000113"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g06",
+    "category": "clean",
+    "detectable_by": "none",
+    "expect_pass": true,
+    "note": "a draft with supported claims only",
+    "lead_first_name": "Grace",
+    "company": "Tidewater Home",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000115",
+        "fact_type": "news",
+        "claim": "Tidewater opened a second distribution centre.",
+        "snippet": "Tidewater opens a second distribution centre"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000116",
+        "fact_type": "process",
+        "claim": "Tidewater wholesale orders arrive by email and are keyed in by hand.",
+        "snippet": "arrive by email and are keyed in by the customer service team"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000117",
+        "fact_type": "hiring",
+        "claim": "Tidewater is hiring a Marketing Operations Manager.",
+        "snippet": "Marketing Operations Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Tidewater Home",
+          "body": "Hi Grace,\n\nI noticed that tidewater opened a second distribution centre. I also saw that tidewater wholesale orders arrive by email and are keyed in by hand.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Tidewater Home?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Tidewater opened a second distribution centre.",
+              "evidence_id": "00000000-0000-4000-8000-000000000115"
+            },
+            {
+              "text": "Tidewater wholesale orders arrive by email and are keyed in by hand.",
+              "evidence_id": "00000000-0000-4000-8000-000000000116"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g07",
+    "category": "hallucinated_foreign_id",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "a claim cites an evidence id that does not belong to this lead",
+    "lead_first_name": "Priya",
+    "company": "Brightloop Digital",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000118",
+        "fact_type": "news",
+        "claim": "Brightloop opened a second studio in Denver and added eight people.",
+        "snippet": "Brightloop opens a second studio in Denver"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000119",
+        "fact_type": "hiring",
+        "claim": "Brightloop is hiring an Operations Coordinator.",
+        "snippet": "Operations Coordinator"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000120",
+        "fact_type": "about",
+        "claim": "Brightloop manages 41 active client accounts.",
+        "snippet": "manages 41 active client accounts"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Brightloop Digital",
+          "body": "Hi Priya,\n\nI noticed that brightloop opened a second studio in Denver and added eight people. I also saw that brightloop is hiring an Operations Coordinator.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Brightloop Digital?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Brightloop opened a second studio in Denver and added eight people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000118"
+            },
+            {
+              "text": "Brightloop is hiring an Operations Coordinator.",
+              "evidence_id": "00000000-0000-4000-8000-000000009000"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g08",
+    "category": "hallucinated_foreign_id",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "a claim cites an evidence id that does not belong to this lead",
+    "lead_first_name": "Daniel",
+    "company": "Cartwheel Goods",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000121",
+        "fact_type": "news",
+        "claim": "Cartwheel passed 9,000 orders a month.",
+        "snippet": "Cartwheel passes 9,000 orders a month"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000122",
+        "fact_type": "process",
+        "claim": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+        "snippet": "fulfilment is run from a single shared spreadsheet"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000123",
+        "fact_type": "hiring",
+        "claim": "Cartwheel is hiring a Fulfilment Coordinator.",
+        "snippet": "Fulfilment Coordinator"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Cartwheel Goods",
+          "body": "Hi Daniel,\n\nI noticed that cartwheel passed 9,000 orders a month. I also saw that cartwheel runs fulfilment from a single shared spreadsheet.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Cartwheel Goods?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Cartwheel passed 9,000 orders a month.",
+              "evidence_id": "00000000-0000-4000-8000-000000000121"
+            },
+            {
+              "text": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+              "evidence_id": "00000000-0000-4000-8000-000000009001"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g09",
+    "category": "hallucinated_unsupported",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "the cited evidence does not say what the claim says",
+    "lead_first_name": "Priya",
+    "company": "Brightloop Digital",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000124",
+        "fact_type": "news",
+        "claim": "Brightloop opened a second studio in Denver and added eight people.",
+        "snippet": "Brightloop opens a second studio in Denver"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000125",
+        "fact_type": "hiring",
+        "claim": "Brightloop is hiring an Operations Coordinator.",
+        "snippet": "Operations Coordinator"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000126",
+        "fact_type": "about",
+        "claim": "Brightloop manages 41 active client accounts.",
+        "snippet": "manages 41 active client accounts"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Brightloop Digital",
+          "body": "Hi Priya,\n\nI noticed that Brightloop opened an office in Berlin. I also saw that brightloop is hiring an Operations Coordinator.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Brightloop Digital?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Brightloop opened an office in Berlin.",
+              "evidence_id": "00000000-0000-4000-8000-000000000124"
+            },
+            {
+              "text": "Brightloop is hiring an Operations Coordinator.",
+              "evidence_id": "00000000-0000-4000-8000-000000000125"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g10",
+    "category": "hallucinated_unsupported",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "the cited evidence does not say what the claim says",
+    "lead_first_name": "Daniel",
+    "company": "Cartwheel Goods",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000127",
+        "fact_type": "news",
+        "claim": "Cartwheel passed 9,000 orders a month.",
+        "snippet": "Cartwheel passes 9,000 orders a month"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000128",
+        "fact_type": "process",
+        "claim": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+        "snippet": "fulfilment is run from a single shared spreadsheet"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000129",
+        "fact_type": "hiring",
+        "claim": "Cartwheel is hiring a Fulfilment Coordinator.",
+        "snippet": "Fulfilment Coordinator"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Cartwheel Goods",
+          "body": "Hi Daniel,\n\nI noticed that Cartwheel ships to more than 30 countries. I also saw that cartwheel runs fulfilment from a single shared spreadsheet.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Cartwheel Goods?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Cartwheel ships to more than 30 countries.",
+              "evidence_id": "00000000-0000-4000-8000-000000000127"
+            },
+            {
+              "text": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+              "evidence_id": "00000000-0000-4000-8000-000000000128"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g11",
+    "category": "hallucinated_unsupported",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "the cited evidence does not say what the claim says",
+    "lead_first_name": "Maya",
+    "company": "Northfield Analytics",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000130",
+        "fact_type": "news",
+        "claim": "Northfield launched scheduled report delivery.",
+        "snippet": "Northfield launches scheduled report delivery"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000131",
+        "fact_type": "process",
+        "claim": "Northfield onboarding checklists are edited by hand by three people.",
+        "snippet": "lives in a document that three people edit by hand"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000132",
+        "fact_type": "hiring",
+        "claim": "Northfield is hiring a Customer Success Manager.",
+        "snippet": "Customer Success Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Northfield Analytics",
+          "body": "Hi Maya,\n\nI noticed that Northfield won an industry award this year. I also saw that northfield onboarding checklists are edited by hand by three people.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Northfield Analytics?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Northfield won an industry award this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000130"
+            },
+            {
+              "text": "Northfield onboarding checklists are edited by hand by three people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000131"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g12",
+    "category": "hidden_claim",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "a statement about the prospect appears in the body but not in claims",
+    "lead_first_name": "Priya",
+    "company": "Brightloop Digital",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000133",
+        "fact_type": "news",
+        "claim": "Brightloop opened a second studio in Denver and added eight people.",
+        "snippet": "Brightloop opens a second studio in Denver"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000134",
+        "fact_type": "hiring",
+        "claim": "Brightloop is hiring an Operations Coordinator.",
+        "snippet": "Operations Coordinator"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000135",
+        "fact_type": "about",
+        "claim": "Brightloop manages 41 active client accounts.",
+        "snippet": "manages 41 active client accounts"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Brightloop Digital",
+          "body": "Hi Priya,\n\nI noticed that brightloop opened a second studio in Denver and added eight people. Congratulations on the recent Series B.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Brightloop Digital?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Brightloop opened a second studio in Denver and added eight people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000133"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g13",
+    "category": "hidden_claim",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "a statement about the prospect appears in the body but not in claims",
+    "lead_first_name": "Daniel",
+    "company": "Cartwheel Goods",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000136",
+        "fact_type": "news",
+        "claim": "Cartwheel passed 9,000 orders a month.",
+        "snippet": "Cartwheel passes 9,000 orders a month"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000137",
+        "fact_type": "process",
+        "claim": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+        "snippet": "fulfilment is run from a single shared spreadsheet"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000138",
+        "fact_type": "hiring",
+        "claim": "Cartwheel is hiring a Fulfilment Coordinator.",
+        "snippet": "Fulfilment Coordinator"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Cartwheel Goods",
+          "body": "Hi Daniel,\n\nI noticed that cartwheel passed 9,000 orders a month. I read that your CEO spoke at a conference last month.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Cartwheel Goods?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Cartwheel passed 9,000 orders a month.",
+              "evidence_id": "00000000-0000-4000-8000-000000000136"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g14",
+    "category": "hidden_claim",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "a statement about the prospect appears in the body but not in claims",
+    "lead_first_name": "Maya",
+    "company": "Northfield Analytics",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000139",
+        "fact_type": "news",
+        "claim": "Northfield launched scheduled report delivery.",
+        "snippet": "Northfield launches scheduled report delivery"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000140",
+        "fact_type": "process",
+        "claim": "Northfield onboarding checklists are edited by hand by three people.",
+        "snippet": "lives in a document that three people edit by hand"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000141",
+        "fact_type": "hiring",
+        "claim": "Northfield is hiring a Customer Success Manager.",
+        "snippet": "Customer Success Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Northfield Analytics",
+          "body": "Hi Maya,\n\nI noticed that northfield launched scheduled report delivery. I saw your recent move to a new ecommerce platform.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Northfield Analytics?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Northfield launched scheduled report delivery.",
+              "evidence_id": "00000000-0000-4000-8000-000000000139"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g15",
+    "category": "hidden_claim",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "a statement about the prospect appears in the body but not in claims",
+    "lead_first_name": "Aisha",
+    "company": "Lumenpath Software",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000142",
+        "fact_type": "news",
+        "claim": "Lumenpath shipped calendar sync v2.",
+        "snippet": "Lumenpath ships calendar sync v2"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000143",
+        "fact_type": "growth",
+        "claim": "Lumenpath support tickets grew 60 percent this year.",
+        "snippet": "Support tickets grew 60 percent this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000144",
+        "fact_type": "hiring",
+        "claim": "Lumenpath is hiring a Support Engineer.",
+        "snippet": "Support Engineer"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Lumenpath Software",
+          "body": "Hi Aisha,\n\nI noticed that lumenpath shipped calendar sync v2. With a team of more than 200 people, coordination must be hard.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Lumenpath Software?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Lumenpath shipped calendar sync v2.",
+              "evidence_id": "00000000-0000-4000-8000-000000000142"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g16",
+    "category": "hidden_claim",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "a statement about the prospect appears in the body but not in claims",
+    "lead_first_name": "Liam",
+    "company": "Sparrowhawk Media",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000145",
+        "fact_type": "news",
+        "claim": "Sparrowhawk won three new retail accounts.",
+        "snippet": "Sparrowhawk wins three new retail accounts"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000146",
+        "fact_type": "growth",
+        "claim": "Sparrowhawk headcount grew from 15 to 22 this year.",
+        "snippet": "Headcount grew from 15 to 22 this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000147",
+        "fact_type": "process",
+        "claim": "Sparrowhawk clients approve posts through shared documents and email threads.",
+        "snippet": "approve posts through a shared document and email threads"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Sparrowhawk Media",
+          "body": "Hi Liam,\n\nI noticed that sparrowhawk won three new retail accounts. I saw your new office in Chicago.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Sparrowhawk Media?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Sparrowhawk won three new retail accounts.",
+              "evidence_id": "00000000-0000-4000-8000-000000000145"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g17",
+    "category": "exaggeration",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "the claim is a stronger statement than the evidence snippet",
+    "lead_first_name": "Priya",
+    "company": "Brightloop Digital",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000148",
+        "fact_type": "news",
+        "claim": "Brightloop opened a second studio in Denver and added eight people.",
+        "snippet": "Brightloop opens a second studio in Denver"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000149",
+        "fact_type": "hiring",
+        "claim": "Brightloop is hiring an Operations Coordinator.",
+        "snippet": "Operations Coordinator"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000150",
+        "fact_type": "about",
+        "claim": "Brightloop manages 41 active client accounts.",
+        "snippet": "manages 41 active client accounts"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Brightloop Digital",
+          "body": "Hi Priya,\n\nI noticed that Brightloop doubled its team this year. I also saw that brightloop is hiring an Operations Coordinator.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Brightloop Digital?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Brightloop doubled its team this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000148"
+            },
+            {
+              "text": "Brightloop is hiring an Operations Coordinator.",
+              "evidence_id": "00000000-0000-4000-8000-000000000149"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g18",
+    "category": "exaggeration",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "the claim is a stronger statement than the evidence snippet",
+    "lead_first_name": "Daniel",
+    "company": "Cartwheel Goods",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000151",
+        "fact_type": "news",
+        "claim": "Cartwheel passed 9,000 orders a month.",
+        "snippet": "Cartwheel passes 9,000 orders a month"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000152",
+        "fact_type": "process",
+        "claim": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+        "snippet": "fulfilment is run from a single shared spreadsheet"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000153",
+        "fact_type": "hiring",
+        "claim": "Cartwheel is hiring a Fulfilment Coordinator.",
+        "snippet": "Fulfilment Coordinator"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Cartwheel Goods",
+          "body": "Hi Daniel,\n\nI noticed that Cartwheel tripled its order volume. I also saw that cartwheel runs fulfilment from a single shared spreadsheet.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Cartwheel Goods?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Cartwheel tripled its order volume.",
+              "evidence_id": "00000000-0000-4000-8000-000000000151"
+            },
+            {
+              "text": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+              "evidence_id": "00000000-0000-4000-8000-000000000152"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g19",
+    "category": "exaggeration",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "the claim is a stronger statement than the evidence snippet",
+    "lead_first_name": "Liam",
+    "company": "Sparrowhawk Media",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000154",
+        "fact_type": "news",
+        "claim": "Sparrowhawk won three new retail accounts.",
+        "snippet": "Sparrowhawk wins three new retail accounts"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000155",
+        "fact_type": "growth",
+        "claim": "Sparrowhawk headcount grew from 15 to 22 this year.",
+        "snippet": "Headcount grew from 15 to 22 this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000156",
+        "fact_type": "process",
+        "claim": "Sparrowhawk clients approve posts through shared documents and email threads.",
+        "snippet": "approve posts through a shared document and email threads"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Sparrowhawk Media",
+          "body": "Hi Liam,\n\nI noticed that Sparrowhawk is the fastest growing agency in its market. I also saw that sparrowhawk headcount grew from 15 to 22 this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Sparrowhawk Media?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Sparrowhawk is the fastest growing agency in its market.",
+              "evidence_id": "00000000-0000-4000-8000-000000000154"
+            },
+            {
+              "text": "Sparrowhawk headcount grew from 15 to 22 this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000155"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g20",
+    "category": "exaggeration",
+    "detectable_by": "judge",
+    "expect_pass": false,
+    "note": "the claim is a stronger statement than the evidence snippet",
+    "lead_first_name": "Maya",
+    "company": "Northfield Analytics",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000157",
+        "fact_type": "news",
+        "claim": "Northfield launched scheduled report delivery.",
+        "snippet": "Northfield launches scheduled report delivery"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000158",
+        "fact_type": "process",
+        "claim": "Northfield onboarding checklists are edited by hand by three people.",
+        "snippet": "lives in a document that three people edit by hand"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000159",
+        "fact_type": "hiring",
+        "claim": "Northfield is hiring a Customer Success Manager.",
+        "snippet": "Customer Success Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Northfield Analytics",
+          "body": "Hi Maya,\n\nI noticed that Northfield handles thousands of customer onboardings. I also saw that northfield onboarding checklists are edited by hand by three people.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Northfield Analytics?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Northfield handles thousands of customer onboardings.",
+              "evidence_id": "00000000-0000-4000-8000-000000000157"
+            },
+            {
+              "text": "Northfield onboarding checklists are edited by hand by three people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000158"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g21",
+    "category": "spam_wording",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "banned promotional phrasing",
+    "lead_first_name": "Daniel",
+    "company": "Cartwheel Goods",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000160",
+        "fact_type": "news",
+        "claim": "Cartwheel passed 9,000 orders a month.",
+        "snippet": "Cartwheel passes 9,000 orders a month"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000161",
+        "fact_type": "process",
+        "claim": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+        "snippet": "fulfilment is run from a single shared spreadsheet"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000162",
+        "fact_type": "hiring",
+        "claim": "Cartwheel is hiring a Fulfilment Coordinator.",
+        "snippet": "Fulfilment Coordinator"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Cartwheel Goods",
+          "body": "Hi Daniel,\n\nI noticed that cartwheel passed 9,000 orders a month. I also saw that cartwheel runs fulfilment from a single shared spreadsheet.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today. Act now, this is a limited time offer.\n\nWould it be worth a short call to see whether any of that could help Cartwheel Goods?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Cartwheel passed 9,000 orders a month.",
+              "evidence_id": "00000000-0000-4000-8000-000000000160"
+            },
+            {
+              "text": "Cartwheel runs fulfilment from a single shared spreadsheet.",
+              "evidence_id": "00000000-0000-4000-8000-000000000161"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g22",
+    "category": "spam_wording",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "banned promotional phrasing",
+    "lead_first_name": "Maya",
+    "company": "Northfield Analytics",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000163",
+        "fact_type": "news",
+        "claim": "Northfield launched scheduled report delivery.",
+        "snippet": "Northfield launches scheduled report delivery"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000164",
+        "fact_type": "process",
+        "claim": "Northfield onboarding checklists are edited by hand by three people.",
+        "snippet": "lives in a document that three people edit by hand"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000165",
+        "fact_type": "hiring",
+        "claim": "Northfield is hiring a Customer Success Manager.",
+        "snippet": "Customer Success Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Northfield Analytics",
+          "body": "Hi Maya,\n\nI noticed that northfield launched scheduled report delivery. I also saw that northfield onboarding checklists are edited by hand by three people.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today. I guarantee results within a month.\n\nWould it be worth a short call to see whether any of that could help Northfield Analytics?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Northfield launched scheduled report delivery.",
+              "evidence_id": "00000000-0000-4000-8000-000000000163"
+            },
+            {
+              "text": "Northfield onboarding checklists are edited by hand by three people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000164"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g23",
+    "category": "spam_wording",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "banned promotional phrasing",
+    "lead_first_name": "Aisha",
+    "company": "Lumenpath Software",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000166",
+        "fact_type": "news",
+        "claim": "Lumenpath shipped calendar sync v2.",
+        "snippet": "Lumenpath ships calendar sync v2"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000167",
+        "fact_type": "growth",
+        "claim": "Lumenpath support tickets grew 60 percent this year.",
+        "snippet": "Support tickets grew 60 percent this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000168",
+        "fact_type": "hiring",
+        "claim": "Lumenpath is hiring a Support Engineer.",
+        "snippet": "Support Engineer"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Lumenpath Software",
+          "body": "Hi Aisha,\n\nI noticed that lumenpath shipped calendar sync v2. I also saw that lumenpath support tickets grew 60 percent this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today. This is a risk-free pilot with no obligation.\n\nWould it be worth a short call to see whether any of that could help Lumenpath Software?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Lumenpath shipped calendar sync v2.",
+              "evidence_id": "00000000-0000-4000-8000-000000000166"
+            },
+            {
+              "text": "Lumenpath support tickets grew 60 percent this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000167"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g24",
+    "category": "spam_wording",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "banned promotional phrasing",
+    "lead_first_name": "Liam",
+    "company": "Sparrowhawk Media",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000169",
+        "fact_type": "news",
+        "claim": "Sparrowhawk won three new retail accounts.",
+        "snippet": "Sparrowhawk wins three new retail accounts"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000170",
+        "fact_type": "growth",
+        "claim": "Sparrowhawk headcount grew from 15 to 22 this year.",
+        "snippet": "Headcount grew from 15 to 22 this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000171",
+        "fact_type": "process",
+        "claim": "Sparrowhawk clients approve posts through shared documents and email threads.",
+        "snippet": "approve posts through a shared document and email threads"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Sparrowhawk Media",
+          "body": "Hi Liam,\n\nI noticed that sparrowhawk won three new retail accounts. I also saw that sparrowhawk headcount grew from 15 to 22 this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today. Your first audit is 100% free.\n\nWould it be worth a short call to see whether any of that could help Sparrowhawk Media?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Sparrowhawk won three new retail accounts.",
+              "evidence_id": "00000000-0000-4000-8000-000000000169"
+            },
+            {
+              "text": "Sparrowhawk headcount grew from 15 to 22 this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000170"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g25",
+    "category": "deceptive_subject",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "a fake reply or forward prefix in the subject",
+    "lead_first_name": "Maya",
+    "company": "Northfield Analytics",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000172",
+        "fact_type": "news",
+        "claim": "Northfield launched scheduled report delivery.",
+        "snippet": "Northfield launches scheduled report delivery"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000173",
+        "fact_type": "process",
+        "claim": "Northfield onboarding checklists are edited by hand by three people.",
+        "snippet": "lives in a document that three people edit by hand"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000174",
+        "fact_type": "hiring",
+        "claim": "Northfield is hiring a Customer Success Manager.",
+        "snippet": "Customer Success Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Re: our call",
+          "body": "Hi Maya,\n\nI noticed that northfield launched scheduled report delivery. I also saw that northfield onboarding checklists are edited by hand by three people.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Northfield Analytics?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Northfield launched scheduled report delivery.",
+              "evidence_id": "00000000-0000-4000-8000-000000000172"
+            },
+            {
+              "text": "Northfield onboarding checklists are edited by hand by three people.",
+              "evidence_id": "00000000-0000-4000-8000-000000000173"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g26",
+    "category": "deceptive_subject",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "a fake reply or forward prefix in the subject",
+    "lead_first_name": "Aisha",
+    "company": "Lumenpath Software",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000175",
+        "fact_type": "news",
+        "claim": "Lumenpath shipped calendar sync v2.",
+        "snippet": "Lumenpath ships calendar sync v2"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000176",
+        "fact_type": "growth",
+        "claim": "Lumenpath support tickets grew 60 percent this year.",
+        "snippet": "Support tickets grew 60 percent this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000177",
+        "fact_type": "hiring",
+        "claim": "Lumenpath is hiring a Support Engineer.",
+        "snippet": "Support Engineer"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Fwd: your invoice",
+          "body": "Hi Aisha,\n\nI noticed that lumenpath shipped calendar sync v2. I also saw that lumenpath support tickets grew 60 percent this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Lumenpath Software?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Lumenpath shipped calendar sync v2.",
+              "evidence_id": "00000000-0000-4000-8000-000000000175"
+            },
+            {
+              "text": "Lumenpath support tickets grew 60 percent this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000176"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g27",
+    "category": "deceptive_subject",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "a fake reply or forward prefix in the subject",
+    "lead_first_name": "Liam",
+    "company": "Sparrowhawk Media",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000178",
+        "fact_type": "news",
+        "claim": "Sparrowhawk won three new retail accounts.",
+        "snippet": "Sparrowhawk wins three new retail accounts"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000179",
+        "fact_type": "growth",
+        "claim": "Sparrowhawk headcount grew from 15 to 22 this year.",
+        "snippet": "Headcount grew from 15 to 22 this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000180",
+        "fact_type": "process",
+        "claim": "Sparrowhawk clients approve posts through shared documents and email threads.",
+        "snippet": "approve posts through a shared document and email threads"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "RE: following up on my last message",
+          "body": "Hi Liam,\n\nI noticed that sparrowhawk won three new retail accounts. I also saw that sparrowhawk headcount grew from 15 to 22 this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today.\n\nWould it be worth a short call to see whether any of that could help Sparrowhawk Media?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Sparrowhawk won three new retail accounts.",
+              "evidence_id": "00000000-0000-4000-8000-000000000178"
+            },
+            {
+              "text": "Sparrowhawk headcount grew from 15 to 22 this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000179"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g28",
+    "category": "over_length",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "the first email is longer than the word limit",
+    "lead_first_name": "Aisha",
+    "company": "Lumenpath Software",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000181",
+        "fact_type": "news",
+        "claim": "Lumenpath shipped calendar sync v2.",
+        "snippet": "Lumenpath ships calendar sync v2"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000182",
+        "fact_type": "growth",
+        "claim": "Lumenpath support tickets grew 60 percent this year.",
+        "snippet": "Support tickets grew 60 percent this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000183",
+        "fact_type": "hiring",
+        "claim": "Lumenpath is hiring a Support Engineer.",
+        "snippet": "Support Engineer"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Lumenpath Software",
+          "body": "Hi Aisha,\n\nI noticed that lumenpath shipped calendar sync v2. I also saw that lumenpath support tickets grew 60 percent this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today. Teams at this stage often keep operations moving with spreadsheets, shared inboxes and reminders that live in people's heads, which works until volume grows and small gaps start to cost real time every week across the whole business and the people who run it day to day.\n\nWould it be worth a short call to see whether any of that could help Lumenpath Software?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Lumenpath shipped calendar sync v2.",
+              "evidence_id": "00000000-0000-4000-8000-000000000181"
+            },
+            {
+              "text": "Lumenpath support tickets grew 60 percent this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000182"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g29",
+    "category": "over_length",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "the first email is longer than the word limit",
+    "lead_first_name": "Liam",
+    "company": "Sparrowhawk Media",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000184",
+        "fact_type": "news",
+        "claim": "Sparrowhawk won three new retail accounts.",
+        "snippet": "Sparrowhawk wins three new retail accounts"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000185",
+        "fact_type": "growth",
+        "claim": "Sparrowhawk headcount grew from 15 to 22 this year.",
+        "snippet": "Headcount grew from 15 to 22 this year"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000186",
+        "fact_type": "process",
+        "claim": "Sparrowhawk clients approve posts through shared documents and email threads.",
+        "snippet": "approve posts through a shared document and email threads"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Sparrowhawk Media",
+          "body": "Hi Liam,\n\nI noticed that sparrowhawk won three new retail accounts. I also saw that sparrowhawk headcount grew from 15 to 22 this year.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today. Teams at this stage often keep operations moving with spreadsheets, shared inboxes and reminders that live in people's heads, which works until volume grows and small gaps start to cost real time every week across the whole business and the people who run it day to day.\n\nWould it be worth a short call to see whether any of that could help Sparrowhawk Media?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Sparrowhawk won three new retail accounts.",
+              "evidence_id": "00000000-0000-4000-8000-000000000184"
+            },
+            {
+              "text": "Sparrowhawk headcount grew from 15 to 22 this year.",
+              "evidence_id": "00000000-0000-4000-8000-000000000185"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "g30",
+    "category": "over_length",
+    "detectable_by": "precheck",
+    "expect_pass": false,
+    "note": "the first email is longer than the word limit",
+    "lead_first_name": "Grace",
+    "company": "Tidewater Home",
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000187",
+        "fact_type": "news",
+        "claim": "Tidewater opened a second distribution centre.",
+        "snippet": "Tidewater opens a second distribution centre"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000188",
+        "fact_type": "process",
+        "claim": "Tidewater wholesale orders arrive by email and are keyed in by hand.",
+        "snippet": "arrive by email and are keyed in by the customer service team"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000189",
+        "fact_type": "hiring",
+        "claim": "Tidewater is hiring a Marketing Operations Manager.",
+        "snippet": "Marketing Operations Manager"
+      }
+    ],
+    "copy": {
+      "variant_label": "eval",
+      "sequence": [
+        {
+          "step": 1,
+          "subject": "Question about Tidewater Home",
+          "body": "Hi Grace,\n\nI noticed that tidewater opened a second distribution centre. I also saw that tidewater wholesale orders arrive by email and are keyed in by hand.\n\nI build n8n automations and AI agents that take repetitive operations work, such as reporting, order handling and lead follow-up, off small teams. I would not guess how that applies to you without hearing how the work runs today. Teams at this stage often keep operations moving with spreadsheets, shared inboxes and reminders that live in people's heads, which works until volume grows and small gaps start to cost real time every week across the whole business and the people who run it day to day.\n\nWould it be worth a short call to see whether any of that could help Tidewater Home?\n\nMuhammad",
+          "claims": [
+            {
+              "text": "Tidewater opened a second distribution centre.",
+              "evidence_id": "00000000-0000-4000-8000-000000000187"
+            },
+            {
+              "text": "Tidewater wholesale orders arrive by email and are keyed in by hand.",
+              "evidence_id": "00000000-0000-4000-8000-000000000188"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

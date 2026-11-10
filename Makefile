@@ -1,4 +1,4 @@
-.PHONY: up down migrate seed test test-db test-service test-workflows check-workflow-sql demo eval lint build-workflows import-workflows
+.PHONY: validate-sandbox eval-local up down migrate seed test test-db test-service test-workflows check-workflow-sql demo eval lint build-workflows import-workflows
 
 COMPOSE ?= docker compose
 
@@ -49,3 +49,6 @@ demo:
 
 eval:
 	cd eval && npm run eval
+
+eval-local:
+	bash scripts/eval-local.sh

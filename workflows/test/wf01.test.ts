@@ -28,7 +28,7 @@ describe('WF-01 intake', () => {
   });
 
   it('inserts idempotently', () => {
-    expect(text).toContain('ON CONFLICT (idempotency_key) DO NOTHING');
+    expect(text).toContain('ON CONFLICT DO NOTHING'); // any unique index (email or idempotency key) must be absorbed, not raised
   });
 
   it('answers 202, 200, 400, 401 and 404', () => {
