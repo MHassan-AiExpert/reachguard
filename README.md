@@ -38,19 +38,22 @@ Built by Muhammad Hassan, AI Automation Engineer & Full Stack Developer.
 ## Contents
 
 1. [What problem it solves](#what-problem-it-solves)
-2. [System architecture](#system-architecture)
-3. [Pipeline flow](#pipeline-flow)
-4. [Lead state machine](#lead-state-machine)
-5. [The agents](#the-agents)
-6. [Workflows](#workflows)
-7. [Send and reply flow](#send-and-reply-flow)
-8. [Safety layers](#safety-layers)
-9. [Data model](#data-model)
-10. [Modes](#modes)
-11. [Quick start](#quick-start)
-12. [Tests and evaluation](#tests-and-evaluation)
-13. [Repository layout](#repository-layout)
-14. [Documents](#documents)
+2. [What you get](#what-you-get)
+3. [How each agent does its job](#how-each-agent-does-its-job)
+4. [System architecture](#system-architecture)
+5. [Pipeline flow](#pipeline-flow)
+6. [Lead state machine](#lead-state-machine)
+7. [The agents](#the-agents)
+8. [Workflows](#workflows)
+9. [Send and reply flow](#send-and-reply-flow)
+10. [Safety layers](#safety-layers)
+11. [Data model](#data-model)
+12. [Modes](#modes)
+13. [Screenshots](#screenshots)
+14. [Quick start](#quick-start)
+15. [Tests and evaluation](#tests-and-evaluation)
+16. [Repository layout](#repository-layout)
+17. [Documents](#documents)
 
 ---
 
@@ -63,6 +66,62 @@ Cold-outreach automation tends to fail in three ways:
 3. It sends the same message twice when two workers race, and keeps sending after a domain's reputation has started to fall.
 
 ReachGuard is built so each of those is hard to commit. Hygiene rules run before any model is called, copy claims must quote text found on the company's own pages, and a Guardian workflow pauses a sending domain when bounce or complaint rates cross a limit.
+
+---
+
+## What you get
+
+**Outcome for a sales team:** a steady queue of researched, scored, personalised first emails that a person can approve from Telegram in one tap, sent from healthy domains inside business hours, with every reply and bounce handled automatically.
+
+| Benefit | How the system delivers it |
+|---|---|
+| Cleaner lists | Role accounts, disposable and dead domains, duplicates, opted-out contacts and consent-required regions are stopped by rules before any model runs. |
+| Copy you can defend | Each claim in an email quotes text found verbatim on the company's own page. A claim without a matching snippet is dropped. |
+| No double sends | Leads are claimed with `SKIP LOCKED` and a lease, and every write is idempotent, so two workers cannot send the same message. |
+| Sender reputation protected | A Guardian pauses a domain at 30 or more sends with bounce above 2% or complaints above 0.1%, enforces a daily LLM budget, and checks SPF, DKIM and DMARC every day. |
+| Opt-outs honoured first | An unsubscribe keyword is matched by a rule before the reply classifier is called, and the suppression is written even when the lead cannot change state. |
+| Humans stay in control | Approve, edit or reject drafts from Telegram. A kill switch stops sending. Live sending needs two explicit settings. |
+| Visible results | Postgres views feed Metabase questions for funnel, hygiene, quality, sending health, replies and LLM cost. |
+
+### What the system produces
+
+- **Lead verdicts:** each lead ends in a clear state (`approved`, `in_sequence`, `replied`, `suppressed`, `rejected`, `needs_review`, `failed`) with the reason recorded.
+- **Evidence-backed drafts:** a subject, body and the list of evidence ids each claim relies on.
+- **Compliant messages:** physical address, a visible unsubscribe link, RFC 8058 one-click headers, threaded follow-ups, no tracking pixel.
+- **Reply handling:** classified replies (interested, objection, not now, unsubscribe, out of office, bounce, wrong person) routed to a person, a pause or a suppression.
+- **Audit trail:** events, LLM calls with cost, approvals and dead letters, all queryable in Postgres.
+
+### Measured results
+
+Run on a throwaway Postgres with the real service and the real workflow SQL (`make eval-local`). The full report is [docs/EVAL_REPORT.md](docs/EVAL_REPORT.md).
+
+| Check | Result |
+|---|---|
+| Hygiene rules: planted bad leads caught with the right reason | 23 of 23 |
+| Hygiene rules: clean leads wrongly blocked | 0 of 31 |
+| Grounding precheck: detectable bad drafts caught | 12 of 12 |
+| Grounding precheck: clean drafts wrongly failed | 0 of 6 |
+| Unsubscribe keyword rule: opt-outs caught | 5 of 5 |
+| Unsubscribe keyword rule: false hits on 35 other replies | 0 |
+| Concurrent duplicate scenarios (lead, event, send) | 4 of 4 |
+| Claim, lease and release scenarios | 3 of 3 |
+
+[![Evaluation report](docs/images/eval-report.png)](docs/EVAL_REPORT.md)
+
+---
+
+## How each agent does its job
+
+| Agent | Problem it resolves | How |
+|---|---|---|
+| Hygiene normaliser | Messy names, titles and company strings, and unclear contacts | Rules decide block or pass. The model only tidies text, and low confidence (under 0.5) goes to human review. |
+| Research extractor | Personalisation that is invented | Fetches the company's pages through an SSRF-guarded fetcher and returns claims with verbatim snippets. Claims that cannot be found in the page are removed. |
+| ICP scorer | Wasting sends on poor-fit companies | Scores against weights in `config/defaults.yaml`, assigns a tier and rejects low fit with a stored reason. |
+| Copywriter | Generic or unsupported copy | Writes the sequence from evidence ids that belong to the lead and rotates variants. |
+| QA judge | A writer grading its own work | A separate call judges the draft. Code checks (grounding, banned phrases, subject length, links in the first email, question count) can override a lenient verdict, and a failed draft is revised. |
+| Reply classifier | Slow or wrong handling of replies | Labels each reply after the keyword rule has run, then routes it to suppression, a pause, a human alert or nothing. |
+
+Page text and replies are wrapped in `<untrusted_*>` tags, and no agent can send an email or write a suppression. Only deterministic steps do.
 
 ---
 
@@ -361,6 +420,57 @@ Dashboards: [db/views/metabase-questions.md](db/views/metabase-questions.md).
 | Events | normaliser per provider | sandbox events; provider slot |
 
 The live slots throw `NotConfigured` until a vendor adapter is added, so nothing can be sent by accident.
+
+---
+
+## Screenshots
+
+### Workflows in n8n
+
+Captured from the generated workflows imported into n8n.
+
+**WF-09 Reply and Event Handler**: signature check, event dedupe, routing of bounces, complaints, unsubscribes and replies.
+
+[![WF-09](docs/images/workflows/wf-09-reply-handler.png)](docs/images/workflows/wf-09-reply-handler.png)
+
+**WF-07b Approval Callback**: signed Telegram buttons for approve, edit and reject.
+
+[![WF-07b](docs/images/workflows/wf-07b-approval-callback.png)](docs/images/workflows/wf-07b-approval-callback.png)
+
+**WF-11 Domain Guardian**: bounce and complaint limits, budget guard and DNS checks.
+
+[![WF-11](docs/images/workflows/wf-11-domain-guardian.png)](docs/images/workflows/wf-11-domain-guardian.png)
+
+<details>
+<summary>More workflows</summary>
+
+**WF-01 Intake Gateway**
+
+[![WF-01](docs/images/workflows/wf-01-intake.png)](docs/images/workflows/wf-01-intake.png)
+
+**WF-03 Research Agent**
+
+[![WF-03](docs/images/workflows/wf-03-research.png)](docs/images/workflows/wf-03-research.png)
+
+**WF-05 Copywriter Agent**
+
+[![WF-05](docs/images/workflows/wf-05-copywriter.png)](docs/images/workflows/wf-05-copywriter.png)
+
+**WF-06 QA and Compliance Judge**
+
+[![WF-06](docs/images/workflows/wf-06-qa-judge.png)](docs/images/workflows/wf-06-qa-judge.png)
+
+**WF-08b Send Dispatcher**
+
+[![WF-08b](docs/images/workflows/wf-08b-send-dispatcher.png)](docs/images/workflows/wf-08b-send-dispatcher.png)
+
+</details>
+
+### An outbound message
+
+Built by the real message builder: visible address, unsubscribe link, one-click headers, deterministic Message-ID. The recipient and body text are sample data.
+
+[![Sample message](docs/images/email-sample.png)](docs/images/email-sample.png)
 
 ---
 
