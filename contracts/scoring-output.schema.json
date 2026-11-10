@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reachguard.local/contracts/scoring-output.schema.json",
+  "type": "object",
+  "required": ["dimensions"],
+  "additionalProperties": false,
+  "properties": {
+    "dimensions": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["name", "score", "rationale"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "enum": ["industry_fit", "size_fit", "role_fit", "trigger_strength", "evidence_quality"] },
+          "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "rationale": { "type": "string", "maxLength": 300 }
+        }
+      }
+    }
+  }
+}

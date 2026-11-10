@@ -52,7 +52,9 @@ services:
     restart: unless-stopped
 
   rg-tools:
-    build: ./services/rg-tools
+    build:
+      context: .
+      dockerfile: services/rg-tools/Dockerfile
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}

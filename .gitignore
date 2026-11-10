@@ -8,3 +8,4 @@ coverage/
 pgdata/
 *.log
 n8n-credentials*.json
+services/*/dist/

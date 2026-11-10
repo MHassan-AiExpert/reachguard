@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reachguard.local/contracts/reply-classification.schema.json",
+  "type": "object",
+  "required": ["classification", "confidence", "summary", "unsubscribe_intent", "next_action"],
+  "additionalProperties": false,
+  "properties": {
+    "classification": { "enum": ["interested", "objection", "not_now", "unsubscribe", "out_of_office", "bounce", "wrong_person", "other"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "summary": { "type": "string", "maxLength": 240 },
+    "unsubscribe_intent": { "type": "boolean" },
+    "return_date": { "type": ["string", "null"], "maxLength": 10 },
+    "referral_contact": { "type": ["string", "null"], "maxLength": 200 },
+    "next_action": { "enum": ["notify_hot", "draft_reply", "wait", "suppress", "ignore", "human_review"] },
+    "suggested_response": { "type": ["string", "null"], "maxLength": 900 }
+  }
+}

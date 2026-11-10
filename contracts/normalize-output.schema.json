@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reachguard.local/contracts/normalize-output.schema.json",
+  "type": "object",
+  "required": ["first_name", "last_name", "company_clean", "confidence"],
+  "additionalProperties": false,
+  "properties": {
+    "first_name": { "type": "string", "maxLength": 80 },
+    "last_name": { "type": "string", "maxLength": 80 },
+    "company_clean": { "type": "string", "maxLength": 160 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}
