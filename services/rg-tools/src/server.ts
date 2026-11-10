@@ -2,8 +2,10 @@ import { timingSafeEqual } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
+import { createSender, type SenderAdapter } from './adapters/sender/index.js';
 import { createLlmProvider, type LlmProvider } from './adapters/llm/index.js';
 import { createVerifier, type Verifier } from './adapters/verify/index.js';
+import { loadUnsubscribeRules, type UnsubscribeRules } from './lib/classify-rules.js';
 import { loadContracts, type ContractRegistry } from './lib/contracts.js';
 import { loadHygieneLists, type HygieneLists } from './lib/email.js';
 import type { SafeFetchDeps } from './lib/fetcher.js';
@@ -16,11 +18,16 @@ import { createMemoryCache, systemResolver, type DnsResolver, type MxCache } fro
 import { registerAuth } from './routes/auth.js';
 import { registerContracts } from './routes/contracts.js';
 import { registerCopy } from './routes/copy.js';
+import { registerEvents } from './routes/events.js';
 import { registerHealth } from './routes/health.js';
 import { registerHygiene } from './routes/hygiene.js';
+import { registerLeads } from './routes/leads.js';
 import { registerLlm } from './routes/llm.js';
 import { registerResearch } from './routes/research.js';
+import { registerSandbox } from './routes/sandbox.js';
 import { registerSandboxSites } from './routes/sandbox-sites.js';
+import { registerSend } from './routes/send.js';
+import { registerUnsubscribe } from './routes/unsubscribe.js';
 import { registerVerify } from './routes/verify.js';
 
 export interface Deps {
@@ -38,6 +45,9 @@ export interface Deps {
   fetchDeps?: SafeFetchDeps;
   copyStore?: CopyStore;
   qaRules?: QaRules;
+  sender?: SenderAdapter;
+  unsubscribeRules?: UnsubscribeRules;
+  webhookFetch?: typeof fetch;
 }
 
 export interface ResolvedDeps extends Deps {
@@ -50,6 +60,9 @@ export interface ResolvedDeps extends Deps {
   pricing: Pricing;
   prompts: PromptStore;
   qaRules: QaRules;
+  sender: SenderAdapter;
+  unsubscribeRules: UnsubscribeRules;
+  webhookFetch: typeof fetch;
 }
 
 const PUBLIC_PREFIXES = ['/healthz', '/u/'];
@@ -72,6 +85,9 @@ export function buildServer(deps: Deps): FastifyInstance {
     llmProvider: deps.llmProvider ?? createLlmProvider(deps.config),
     pricing: deps.pricing ?? loadPricing(deps.config.configDir),
     prompts: deps.prompts ?? createPromptStore(deps.config.promptsDir),
+    sender: deps.sender ?? createSender(deps.config),
+    unsubscribeRules: deps.unsubscribeRules ?? loadUnsubscribeRules(deps.config.configDir),
+    webhookFetch: deps.webhookFetch ?? fetch,
     qaRules: deps.qaRules ?? loadQaRules(deps.config.configDir),
     copyStore: deps.copyStore ?? (deps.db ? createPgCopyStore(deps.db) : undefined),
     llmStore: deps.llmStore ?? (deps.db ? createPgLlmStore(deps.db) : undefined),
@@ -96,5 +112,10 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerResearch(app, resolved);
   registerSandboxSites(app, resolved);
   registerCopy(app, resolved);
+  registerSend(app, resolved);
+  registerUnsubscribe(app, resolved);
+  registerEvents(app, resolved);
+  registerSandbox(app, resolved);
+  registerLeads(app, resolved);
   return app;
 }

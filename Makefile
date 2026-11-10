@@ -9,7 +9,7 @@ down:
 	$(COMPOSE) down
 
 migrate:
-	$(COMPOSE) exec -T postgres sh -c 'psql -U $$POSTGRES_USER -d $$POSTGRES_DB -v ON_ERROR_STOP=1' < db/migrations/0001_init.sql
+	for f in db/migrations/*.sql; do $(COMPOSE) exec -T postgres sh -c 'psql -U $$POSTGRES_USER -d $$POSTGRES_DB -v ON_ERROR_STOP=1' < $$f; done
 
 seed:
 	for f in db/seeds/*.sql; do $(COMPOSE) exec -T postgres sh -c 'psql -U $$POSTGRES_USER -d $$POSTGRES_DB -v ON_ERROR_STOP=1' < $$f; done
@@ -20,6 +20,9 @@ test-db:
 	bash scripts/db-test.sh
 
 test-service:
+	bash scripts/service-test.sh
+
+test-service-unit:
 	cd services/rg-tools && npm test
 
 test-workflows:

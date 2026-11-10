@@ -30,6 +30,9 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     llmFixturesDir: path.join(repoRoot, 'services/rg-tools/test/fixtures/llm'),
     geminiApiKey: '',
     openaiApiKey: '',
+    smtpHost: 'localhost',
+    smtpPort: 1025,
+    eventsWebhookUrl: 'http://n8n.test/webhook/rg/events',
     ...overrides,
   };
 }

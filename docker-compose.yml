@@ -60,6 +60,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       PORT: 8080
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      RG_EVENTS_WEBHOOK_URL: http://n8n:5678/webhook/rg/events
     depends_on:
       postgres:
         condition: service_healthy

@@ -23,3 +23,8 @@ export function verifyWebhook(
   const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest();
   return timingSafeEqual(Buffer.from(provided, 'hex'), expected);
 }
+
+/** Signature header value for a webhook body: `sha256=<hex>` over `${timestamp}.${rawBody}`. */
+export function signWebhook(secret: string, rawBody: string, timestamp: string): string {
+  return `sha256=${createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex')}`;
+}

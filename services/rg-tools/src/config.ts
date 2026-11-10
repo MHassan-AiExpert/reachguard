@@ -27,6 +27,9 @@ export interface Config {
   llmFixturesDir: string;
   geminiApiKey: string;
   openaiApiKey: string;
+  smtpHost: string;
+  smtpPort: number;
+  eventsWebhookUrl: string;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -69,5 +72,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     llmFixturesDir: env.LLM_FIXTURES_DIR ?? path.join(root, 'services/rg-tools/test/fixtures/llm'),
     geminiApiKey: env.GEMINI_API_KEY ?? '',
     openaiApiKey: env.OPENAI_API_KEY ?? '',
+    smtpHost: env.SMTP_HOST ?? 'localhost',
+    smtpPort: Number(env.SMTP_PORT ?? 1025),
+    eventsWebhookUrl: env.RG_EVENTS_WEBHOOK_URL ?? 'http://n8n:5678/webhook/rg/events',
   };
 }
