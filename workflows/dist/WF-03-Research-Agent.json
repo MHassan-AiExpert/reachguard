@@ -1,0 +1,823 @@
+{
+  "id": "rgwf03",
+  "name": "WF-03 Research Agent",
+  "nodes": [
+    {
+      "id": "1a5b9005-c44f-1a04-db46-256363ac1949",
+      "name": "Every minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "e1b5eebc-5fb6-4373-8f7b-de3de1acabcd",
+      "name": "Run on demand",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "4c6c52d8-4166-06a8-7d65-da0879db7689",
+      "name": "Gate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         COALESCE((SELECT value FROM settings WHERE key = 'kill_switch'), 'false'::jsonb) = 'true'::jsonb AS kill_switch,\n         COALESCE((SELECT value FROM settings WHERE key = 'llm_paused'), 'false'::jsonb) = 'true'::jsonb AS llm_paused",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "d3cbd6de-4db8-0190-c5aa-e6d5c09110a5",
+      "name": "Stage enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.kill_switch && !$json.llm_paused }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "edc995af-1774-4e88-e3e9-91d5ffb0b80b",
+      "name": "Start run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO runs (workflow, execution_id) VALUES ($1, $2) RETURNING id AS run_id",
+        "options": {
+          "queryReplacement": "={{ [\"WF-03 Research Agent\", String($execution.id)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "60c82e7b-c5b7-3b8b-fb3e-1e7589fc658c",
+      "name": "Claim leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM claim_leads('verified'::lead_status, 5, $1)",
+        "options": {
+          "queryReplacement": "={{ [\"WF-03 Research Agent\" + \":\" + $execution.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "6efa14cd-e556-b333-1359-d7af0549f574",
+      "name": "Leads claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "a28023cb-8ea0-1364-c6ca-254d93f525f7",
+      "name": "Lead loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "458b6c4a-503e-ad9d-0a0d-90aa4f7ecf87",
+      "name": "Release lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT release_lead($1::uuid, $2) AS released",
+        "options": {
+          "queryReplacement": "={{ [$('Lead loop').first().json.id, (typeof $json.error === \"string\" ? $json.error : JSON.stringify($json.error ?? \"stage failed\")).slice(0, 500)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "7b573725-5749-9754-8091-8580cef51ba2",
+      "name": "End run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE runs\n          SET status = 'succeeded', ended_at = now(),\n              latency_ms = (extract(epoch FROM now() - started_at) * 1000)::int\n        WHERE id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Start run').first().json.run_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "68c64855-7f13-f759-4fa0-31d42a189e2c",
+      "name": "Init state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const lead = $json;\nreturn [{ json: { lead, flags: [...(lead.flags || [])], facts: [], dropped: 0, injection: false, company: null, pages: [], decision: null } }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "fac352af-8e1d-e715-84fc-af45ade3bbfa",
+      "name": "Resolve site",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT domain, name_clean FROM companies WHERE id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.company_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "position": [
+        2080,
+        160
+      ]
+    },
+    {
+      "id": "dcee4e10-e4a1-28f2-d404-e24ae0b8eee2",
+      "name": "Site evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init state').first().json));\nconst r = $json;\ns.site = String(s.lead.website || r.domain || '');\ns.company_name = r.name_clean || s.lead.company_clean || s.lead.company_raw;\ns.company_domain = String(r.domain || '');\nif (!s.site) { s.decision = { to: 'needs_review', reason: 'no_evidence' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "20370ae4-e333-48f6-7193-9d4ec86b528b",
+      "name": "Fetch pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/research/fetch",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ website: $json.site }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "5695b8b7-eeae-7c01-f97b-a2c8362c0dd1",
+      "name": "Pages evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Site evaluate').first().json));\nconst r = $json;\ns.pages = Array.isArray(r.pages) ? r.pages : [];\nif (s.pages.length === 0) { s.decision = { to: 'needs_review', reason: 'no_evidence' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "e69f023f-c260-71a5-4080-2e946eb67117",
+      "name": "Extract facts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/llm/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent: \"research-extractor\", lead_id: $json.lead.id, variables: { company_clean: $json.company_name, company_domain: $json.company_domain, today: new Date().toISOString().slice(0, 10), pages: $json.pages } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "id": "84bd4cf6-1c32-eb59-fc2b-548d530c23f5",
+      "name": "Ground facts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/research/ground",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ facts: $json.output.facts, pages: $(\"Pages evaluate\").first().json.pages }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "id": "2b369b0f-0aaf-d770-6895-af4729d6ad53",
+      "name": "Grounding evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Pages evaluate').first().json));\nconst r = $json;\nconst out = $('Extract facts').first().json.output;\ns.facts = r.kept || [];\ns.dropped = r.dropped_count || 0;\ns.injection = out.injection_detected === true;\ns.company = out.company || null;\nif (s.injection && !s.flags.includes('injection_detected')) s.flags.push('injection_detected');\nconst n = s.facts.length;\ns.sufficiency = n === 0 ? 'none' : n < 3 ? 'thin' : n < 5 ? 'adequate' : 'rich';\nif (s.sufficiency === 'none') { s.decision = { to: 'needs_review', reason: 'no_evidence' }; }\nelse {\n  if (s.sufficiency === 'thin' && !s.flags.includes('thin_evidence')) s.flags.push('thin_evidence');\n  s.decision = { to: 'researched', reason: 'evidence ' + s.sufficiency + (s.dropped ? ' (' + s.dropped + ' ungrounded facts dropped)' : '') };\n}\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        4160,
+        0
+      ]
+    },
+    {
+      "id": "29b75a23-d940-6594-ce57-5c6be029d66c",
+      "name": "Has site?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "37f32e9a-4f4b-fa32-feba-0e09aa42a421",
+      "name": "Has pages?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "c135e52c-4ef3-4b06-6f0d-209d2fabf0b1",
+      "name": "Insert evidence",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upd AS (\n  UPDATE leads SET flags = ARRAY(SELECT jsonb_array_elements_text($4::jsonb)) WHERE id = $1::uuid RETURNING id, company_id),\nev AS (\n  INSERT INTO research_evidence (lead_id, company_id, fact_type, claim, source_url, snippet, confidence, content_hash)\n  SELECT $1::uuid, (SELECT company_id FROM upd), x.fact_type, x.claim, x.source_url, x.snippet, x.confidence,\n         encode(digest(x.snippet, 'sha256'), 'hex')\n    FROM jsonb_to_recordset($5::jsonb) AS x(fact_type text, claim text, source_url text, snippet text, confidence numeric)\n  RETURNING 1),\nco AS (\n  UPDATE companies c\n     SET industry = COALESCE(NULLIF($6::jsonb->>'industry', ''), c.industry),\n         employee_range = COALESCE(NULLIF($6::jsonb->>'employee_range', ''), c.employee_range)\n   WHERE c.id = (SELECT company_id FROM upd) AND $6::jsonb IS NOT NULL\n  RETURNING 1),\ninj AS (\n  INSERT INTO verification_results (lead_id, check_name, outcome, provider, detail)\n  SELECT $1::uuid, 'injection_scan', 'warn', 'llm', jsonb_build_object('dropped_facts', $7::int)\n   WHERE $8::boolean\n  RETURNING 1)\nSELECT transition_lead(upd.id, 'verified'::lead_status, $2::lead_status, $3, 'WF-03') AS transitioned,\n       (SELECT count(*) FROM ev) AS facts_written\n  FROM upd",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id, $json.decision.to, $json.decision.reason, JSON.stringify($json.flags), JSON.stringify($json.facts), JSON.stringify($json.company ?? {}), $json.dropped, $json.injection] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Init state": {
+      "main": [
+        [
+          {
+            "node": "Resolve site",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve site": {
+      "main": [
+        [
+          {
+            "node": "Site evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Site evaluate": {
+      "main": [
+        [
+          {
+            "node": "Has site?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has site?": {
+      "main": [
+        [
+          {
+            "node": "Fetch pages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch pages": {
+      "main": [
+        [
+          {
+            "node": "Pages evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pages evaluate": {
+      "main": [
+        [
+          {
+            "node": "Has pages?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has pages?": {
+      "main": [
+        [
+          {
+            "node": "Extract facts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract facts": {
+      "main": [
+        [
+          {
+            "node": "Ground facts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ground facts": {
+      "main": [
+        [
+          {
+            "node": "Grounding evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grounding evaluate": {
+      "main": [
+        [
+          {
+            "node": "Insert evidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every minute": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run on demand": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate": {
+      "main": [
+        [
+          {
+            "node": "Stage enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage enabled": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Claim leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim leads": {
+      "main": [
+        [
+          {
+            "node": "Leads claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads claimed": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead loop": {
+      "main": [
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert evidence": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

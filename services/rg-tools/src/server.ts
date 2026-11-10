@@ -13,6 +13,7 @@ import { createPgCopyStore, type CopyStore } from './lib/copy-store.js';
 import { createPgLlmStore, type LlmStore } from './lib/llm-store.js';
 import { loadPricing, type Pricing } from './lib/pricing.js';
 import { loadQaRules, type QaRules } from './lib/precheck.js';
+import { loadScoringRules, type ScoringRules } from './lib/tier.js';
 import { createPromptStore, type PromptStore } from './lib/prompts.js';
 import { createMemoryCache, systemResolver, type DnsResolver, type MxCache } from './lib/mx.js';
 import { registerAuth } from './routes/auth.js';
@@ -24,6 +25,7 @@ import { registerHygiene } from './routes/hygiene.js';
 import { registerLeads } from './routes/leads.js';
 import { registerLlm } from './routes/llm.js';
 import { registerResearch } from './routes/research.js';
+import { registerScore } from './routes/score.js';
 import { registerSandbox } from './routes/sandbox.js';
 import { registerSandboxSites } from './routes/sandbox-sites.js';
 import { registerSend } from './routes/send.js';
@@ -45,6 +47,7 @@ export interface Deps {
   fetchDeps?: SafeFetchDeps;
   copyStore?: CopyStore;
   qaRules?: QaRules;
+  scoring?: ScoringRules;
   sender?: SenderAdapter;
   unsubscribeRules?: UnsubscribeRules;
   webhookFetch?: typeof fetch;
@@ -60,6 +63,7 @@ export interface ResolvedDeps extends Deps {
   pricing: Pricing;
   prompts: PromptStore;
   qaRules: QaRules;
+  scoring: ScoringRules;
   sender: SenderAdapter;
   unsubscribeRules: UnsubscribeRules;
   webhookFetch: typeof fetch;
@@ -89,6 +93,7 @@ export function buildServer(deps: Deps): FastifyInstance {
     unsubscribeRules: deps.unsubscribeRules ?? loadUnsubscribeRules(deps.config.configDir),
     webhookFetch: deps.webhookFetch ?? fetch,
     qaRules: deps.qaRules ?? loadQaRules(deps.config.configDir),
+    scoring: deps.scoring ?? loadScoringRules(deps.config.configDir),
     copyStore: deps.copyStore ?? (deps.db ? createPgCopyStore(deps.db) : undefined),
     llmStore: deps.llmStore ?? (deps.db ? createPgLlmStore(deps.db) : undefined),
   };
@@ -108,6 +113,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerContracts(app, resolved);
   registerHygiene(app, resolved);
   registerVerify(app, resolved);
+  registerScore(app, resolved);
   registerLlm(app, resolved);
   registerResearch(app, resolved);
   registerSandboxSites(app, resolved);

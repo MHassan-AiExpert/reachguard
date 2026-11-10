@@ -140,4 +140,14 @@ BEGIN
   ASSERT (SELECT value FROM settings WHERE key = 'kill_switch') = 'false'::jsonb, 'kill switch seeded off';
 END $$;
 
+-- 11. stage outcomes the workflows rely on (spec 10, WF-04: a tier C lead is rejected straight from researched)
+DO $$
+DECLARE a uuid;
+BEGIN
+  INSERT INTO leads (campaign_id, idempotency_key, email, company_raw, status)
+  SELECT id, 'st-rej', 'rej@acme.com', 'Acme', 'researched' FROM campaigns LIMIT 1 RETURNING id INTO a;
+  PERFORM transition_lead(a, 'researched', 'rejected', 'low_fit', 'test');
+  ASSERT (SELECT status FROM leads WHERE id = a) = 'rejected', 'researched -> rejected must be allowed';
+END $$;
+
 SELECT 'schema tests passed' AS result;

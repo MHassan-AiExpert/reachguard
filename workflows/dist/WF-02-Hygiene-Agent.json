@@ -1,0 +1,1797 @@
+{
+  "id": "rgwf02",
+  "name": "WF-02 Hygiene Agent",
+  "nodes": [
+    {
+      "id": "59c96b44-7f5d-e1cf-b070-90088054bce6",
+      "name": "Every minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "6d912d0f-573c-5454-da7c-e482eada16f0",
+      "name": "Run on demand",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "id": "21dd2f40-2a50-eefa-c4a6-b6e44c21b878",
+      "name": "Gate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n         COALESCE((SELECT value FROM settings WHERE key = 'kill_switch'), 'false'::jsonb) = 'true'::jsonb AS kill_switch,\n         COALESCE((SELECT value FROM settings WHERE key = 'llm_paused'), 'false'::jsonb) = 'true'::jsonb AS llm_paused",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "id": "9c2472bd-d1da-7f68-865c-eb1848883992",
+      "name": "Stage enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.kill_switch }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "id": "7a0dd258-1c68-97a2-04d2-6add705f30a6",
+      "name": "Start run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO runs (workflow, execution_id) VALUES ($1, $2) RETURNING id AS run_id",
+        "options": {
+          "queryReplacement": "={{ [\"WF-02 Hygiene Agent\", String($execution.id)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "id": "5e7b6bac-3f88-447d-946b-e91a4d8c0653",
+      "name": "Claim leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM claim_leads('received'::lead_status, 5, $1)",
+        "options": {
+          "queryReplacement": "={{ [\"WF-02 Hygiene Agent\" + \":\" + $execution.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "331f7a6a-548d-bff6-0d70-76160b639ae5",
+      "name": "Leads claimed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-2121246a736f",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "id": "71145f19-e70d-3844-77b1-ac3e78b394d1",
+      "name": "Lead loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "id": "746c2889-a6a9-4687-2807-c151f9f1b9bd",
+      "name": "Release lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT release_lead($1::uuid, $2) AS released",
+        "options": {
+          "queryReplacement": "={{ [$('Lead loop').first().json.id, (typeof $json.error === \"string\" ? $json.error : JSON.stringify($json.error ?? \"stage failed\")).slice(0, 500)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "id": "1b256cb5-9b96-2da7-7b59-b3c5d8d16a0c",
+      "name": "End run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE runs\n          SET status = 'succeeded', ended_at = now(),\n              latency_ms = (extract(epoch FROM now() - started_at) * 1000)::int\n        WHERE id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Start run').first().json.run_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "id": "034f4880-1cc3-5c33-2640-1de9fd3c91eb",
+      "name": "Init state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const lead = $json;\nreturn [{ json: { lead, flags: [...(lead.flags || [])], consent_basis: lead.consent_basis || null, checks: [], decision: null } }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "id": "5f2a3385-f9f1-74bd-ba5a-a76fa76e1e95",
+      "name": "H1 Classify email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/hygiene/classify-email",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.lead.email }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        2080,
+        160
+      ]
+    },
+    {
+      "id": "5bd3a02d-d85c-369d-0209-797bae8cdc1a",
+      "name": "H1 Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('Init state').first().json));\nconst r = $json;\ns.cls = r;\ns.checks.push({ check_name: 'syntax', outcome: r.syntax_ok ? 'pass' : 'fail', provider: 'rg-tools', detail: { flags: r.flags } });\nif (!r.syntax_ok) { s.decision = { to: 'rejected', reason: 'invalid_syntax' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "id": "e1faebde-4aba-7902-6d12-903173f4976e",
+      "name": "H2 Suppression",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT is_suppressed($1::citext) AS suppressed",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.email] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "id": "a2556848-7826-0763-7a14-67a7b84cef34",
+      "name": "H2 Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H1 Evaluate').first().json));\nconst r = $json;\ns.checks.push({ check_name: 'suppression', outcome: r.suppressed ? 'fail' : 'pass', provider: 'postgres', detail: {} });\nif (r.suppressed) { s.decision = { to: 'suppressed', reason: 'suppression_list' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "id": "76d2ea0e-211d-ff05-8aea-b19f9e1ec997",
+      "name": "H1 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "id": "bd9b7676-dfd2-ba6d-3984-fe26732e3c2c",
+      "name": "H3 Flags",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H2 Evaluate').first().json));\nconst r = $json;\nconst fl = s.cls.flags;\nconst bad = fl.includes('disposable') ? 'disposable'\n  : (fl.includes('role') && !false) ? 'role_based'\n  : (fl.includes('free_provider') && !false) ? 'free_provider' : null;\ns.checks.push({ check_name: 'email_flags', outcome: bad ? 'fail' : (fl.length ? 'warn' : 'pass'), provider: 'rg-tools', detail: { flags: fl } });\nif (bad) { s.decision = { to: 'rejected', reason: bad }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "id": "0c5948f5-c36f-d32d-1b64-98736863e9a1",
+      "name": "H2 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "id": "fba2e9f9-3a37-3be6-3e66-69c71302cb49",
+      "name": "H4 Region rule",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT rule FROM region_rules WHERE country = upper($1)",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.country ?? ''] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "position": [
+        4160,
+        0
+      ]
+    },
+    {
+      "id": "aa196d6a-6692-f216-0482-39a188c2aa8f",
+      "name": "H4 Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H3 Flags').first().json));\nconst r = $json;\nconst rule = r.rule || 'allow';\ns.checks.push({ check_name: 'region', outcome: rule === 'allow' ? 'pass' : (rule === 'allow_with_note' ? 'warn' : 'fail'), provider: 'postgres', detail: { rule } });\nif (rule === 'blocked') { s.decision = { to: 'rejected', reason: 'region_blocked' }; }\nelse if (rule === 'restricted') { s.decision = { to: 'needs_review', reason: 'region_restricted' }; }\nelse if (rule === 'allow_with_note') { s.consent_basis = 'legitimate_interest'; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        4420,
+        0
+      ]
+    },
+    {
+      "id": "fc67c751-fa90-0e5a-cd5a-e7b9837a5b98",
+      "name": "H3 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "id": "983912c1-1b3f-16bb-9be9-77b228b2840a",
+      "name": "H5 Normalize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/hygiene/normalize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ first_name: $json.lead.first_name ?? \"\", last_name: $json.lead.last_name ?? \"\", company: $json.lead.company_raw }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        4940,
+        0
+      ]
+    },
+    {
+      "id": "4bc7ce79-2fac-0e9b-379c-fdad32c3a589",
+      "name": "H5 Normalize eval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H4 Evaluate').first().json));\nconst r = $json;\ns.norm = r;\ns.needs_llm = !(Number(r.confidence) >= 0.8);\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        5200,
+        0
+      ]
+    },
+    {
+      "id": "414279b6-b1e5-5100-b985-692d8f589ea1",
+      "name": "H5 Needs LLM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.needs_llm === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        5460,
+        0
+      ]
+    },
+    {
+      "id": "e944b127-71de-f530-d7d8-2c2964e2dc5f",
+      "name": "H5 LLM normalize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/llm/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent: \"hygiene-normalizer\", lead_id: $json.lead.id, variables: { first_name: $json.lead.first_name ?? \"\", last_name: $json.lead.last_name ?? \"\", title: $json.lead.title ?? \"\", company_raw: $json.lead.company_raw, country: $json.lead.country ?? \"\" } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        5720,
+        0
+      ]
+    },
+    {
+      "id": "272f86c7-3e69-0054-5ac2-c32a30a17470",
+      "name": "H5 Merge names",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H5 Normalize eval').first().json));\nconst r = $json;\nconst o = r.output;\nconst n = o && typeof o === 'object' ? o : s.norm;\nconst llm = !!o;\ns.names = { first_name: n.first_name, last_name: n.last_name, company_clean: n.company_clean };\ns.checks.push({ check_name: 'normalize', outcome: 'pass', provider: llm ? 'llm' : 'rg-tools', detail: { confidence: n.confidence, llm } });\nif (llm && Number(n.confidence) < 0.5) { s.decision = { to: 'needs_review', reason: 'normalize_uncertain' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        5720,
+        160
+      ]
+    },
+    {
+      "id": "401e9424-761a-3bf4-cfc0-62462b3d0518",
+      "name": "H4 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        4680,
+        0
+      ]
+    },
+    {
+      "id": "f0094a6e-53ef-522c-77b0-b02913f69f0d",
+      "name": "H6 Resolve company",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH n AS (SELECT btrim(regexp_replace(lower($2), '[^a-z0-9]+', ' ', 'g')) AS norm),\nby_domain AS (SELECT id FROM companies WHERE $1 <> '' AND domain = $1::citext LIMIT 1),\nby_name AS (\n  SELECT c.id FROM companies c, n\n   WHERE NOT EXISTS (SELECT 1 FROM by_domain)\n     AND similarity(c.name_norm, n.norm) >= 0.85\n   ORDER BY similarity(c.name_norm, n.norm) DESC LIMIT 1),\nins AS (\n  INSERT INTO companies (domain, name_clean, name_norm)\n  SELECT NULLIF($1, '')::citext, $2, n.norm FROM n\n   WHERE NOT EXISTS (SELECT 1 FROM by_domain) AND NOT EXISTS (SELECT 1 FROM by_name)\n  ON CONFLICT (domain) DO NOTHING\n  RETURNING id),\npicked AS (\n  SELECT id FROM by_domain UNION ALL SELECT id FROM by_name UNION ALL SELECT id FROM ins\n  UNION ALL SELECT id FROM companies WHERE $1 <> '' AND domain = $1::citext\n  LIMIT 1)\nUPDATE leads\n   SET company_id = (SELECT id FROM picked), company_clean = $2,\n       first_name = $3, last_name = $4, full_name = btrim($3 || ' ' || $4)\n WHERE id = $5::uuid\nRETURNING company_id",
+        "options": {
+          "queryReplacement": "={{ [ (() => { const l = $json.lead; const w = String(l.website || '').replace(/^https?:\\/\\//i, '').split('/')[0].replace(/^www\\./i, '').toLowerCase(); return w || ($json.cls.flags.includes('free_provider') ? '' : String(l.email_domain || '')); })(), $json.names.company_clean, $json.names.first_name, $json.names.last_name, $json.lead.id ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        6240,
+        0
+      ]
+    },
+    {
+      "id": "2312b454-1e21-af42-0495-213d878fbd51",
+      "name": "H6 Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H5 Merge names').first().json));\nconst r = $json;\ns.company_id = r.company_id;\ns.checks.push({ check_name: 'company', outcome: 'pass', provider: 'postgres', detail: { company_id: r.company_id } });\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        6500,
+        0
+      ]
+    },
+    {
+      "id": "27238323-c11f-fcf3-966b-b9ab3d78e5e9",
+      "name": "H5 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        5980,
+        0
+      ]
+    },
+    {
+      "id": "da1b702c-ccca-7b47-7b70-c0ff1db348af",
+      "name": "H7 Company limits",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT count(*) FROM leads\n    WHERE company_id = $1::uuid AND id <> $2::uuid\n      AND status IN ('queued','in_sequence','replied','completed')) AS contacted,\n  EXISTS (SELECT 1 FROM sends s JOIN leads l ON l.id = s.lead_id\n           WHERE l.company_id = $1::uuid AND l.id <> $2::uuid AND s.status = 'sent'\n             AND s.sent_at > now() - make_interval(days => 90)) AS in_cooldown",
+        "options": {
+          "queryReplacement": "={{ [$json.company_id, $json.lead.id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        7020,
+        0
+      ]
+    },
+    {
+      "id": "886af1f5-5a59-d000-694d-d7a743061929",
+      "name": "H7 Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H6 Evaluate').first().json));\nconst r = $json;\nconst over = Number(r.contacted) >= 2 || r.in_cooldown === true;\ns.checks.push({ check_name: 'company_limits', outcome: over ? 'fail' : 'pass', provider: 'postgres', detail: { contacted: Number(r.contacted), in_cooldown: r.in_cooldown } });\nif (over) { s.decision = { to: 'rejected', reason: 'company_cap' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        7280,
+        0
+      ]
+    },
+    {
+      "id": "61bd4a25-064e-eec2-e920-7eaf2d7c4e26",
+      "name": "H6 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        6760,
+        0
+      ]
+    },
+    {
+      "id": "c4643971-aabb-0ec2-f6af-5d35ccf6d560",
+      "name": "H8 DNS MX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/hygiene/dns-mx",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ domain: $json.lead.email_domain }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        7800,
+        0
+      ]
+    },
+    {
+      "id": "dec176fe-f7cb-99f6-6c79-85034578d822",
+      "name": "H8 Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H7 Evaluate').first().json));\nconst r = $json;\ns.checks.push({ check_name: 'dns_mx', outcome: r.has_mx ? 'pass' : 'fail', provider: 'dns', detail: { hosts: r.hosts } });\nif (!r.has_mx) { s.decision = { to: 'rejected', reason: 'no_mx' }; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        8060,
+        0
+      ]
+    },
+    {
+      "id": "339c9317-67f2-8bc2-360c-1cf9d3329198",
+      "name": "H7 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        7540,
+        0
+      ]
+    },
+    {
+      "id": "90d1212e-2c9f-32ac-083f-806adc154b9d",
+      "name": "H9 Verify primary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.lead.email, tier: \"primary\", tags: $json.lead.tags ?? [] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        8580,
+        0
+      ]
+    },
+    {
+      "id": "6dbfae0f-0615-ad9e-284e-ba56c25011df",
+      "name": "H9 Route primary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H8 Evaluate').first().json));\nconst r = $json;\ns.checks.push({ check_name: 'verify_primary', outcome: r.result === 'valid' ? 'pass' : (r.result === 'invalid' ? 'fail' : 'warn'), provider: r.provider, detail: { result: r.result }, cost_usd: r.cost_usd });\ns.escalate = false;\nif (r.result === 'invalid') { s.decision = { to: 'rejected', reason: 'invalid_mailbox' }; }\nelse if (r.result !== 'valid') { s.escalate = true; }\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        8840,
+        0
+      ]
+    },
+    {
+      "id": "37ae52c0-d23a-cf05-19ab-bf4f01857596",
+      "name": "H9 Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-246a736f6e2e",
+              "leftValue": "={{ $json.escalate === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        9100,
+        0
+      ]
+    },
+    {
+      "id": "13659b74-dff5-04d6-cb8f-dcc98cb18127",
+      "name": "H8 Continue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-21246a736f6e",
+              "leftValue": "={{ !$json.decision }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "position": [
+        8320,
+        0
+      ]
+    },
+    {
+      "id": "57e99301-d18c-5661-5416-cc62919a3f2f",
+      "name": "H10 Verify escalation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "http://rg-tools:8080/v1/verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.lead.email, tier: \"escalation\", tags: $json.lead.tags ?? [] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rg-tools-key",
+          "name": "RG Tools Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        9360,
+        0
+      ]
+    },
+    {
+      "id": "87fc8a0a-3949-d987-6dce-6aa9ebab8948",
+      "name": "H10 Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H9 Route primary').first().json));\nconst r = $json;\ns.checks.push({ check_name: 'verify_escalation', outcome: r.result === 'valid' ? 'pass' : (r.result === 'catch_all' ? 'warn' : 'fail'), provider: r.provider, detail: { result: r.result }, cost_usd: r.cost_usd });\nif (r.result === 'catch_all') { if (!s.flags.includes('catch_all')) s.flags.push('catch_all'); }\nelse if (r.result === 'invalid') { s.decision = { to: 'rejected', reason: 'invalid_mailbox' }; }\nelse if (r.result !== 'valid') { s.decision = { to: 'needs_review', reason: 'verifier_inconclusive' }; }\ns.decision = s.decision || { to: 'verified', reason: 'passed hygiene' };\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        9620,
+        0
+      ]
+    },
+    {
+      "id": "2dbd9050-2158-9ecc-b3e0-4171562d2d18",
+      "name": "Verified",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = JSON.parse(JSON.stringify($('H9 Route primary').first().json));\nconst r = $json;\ns.decision = s.decision || { to: 'verified', reason: 'passed hygiene' };\nreturn [{ json: s }];"
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        9360,
+        160
+      ]
+    },
+    {
+      "id": "90c6f9fe-68bd-f34c-1d29-c9d24ec1cec0",
+      "name": "Finalize lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upd AS (\n  UPDATE leads\n     SET flags = ARRAY(SELECT jsonb_array_elements_text($4::jsonb)),\n         consent_basis = COALESCE($5, consent_basis)\n   WHERE id = $1::uuid\n   RETURNING id),\nchk AS (\n  INSERT INTO verification_results (lead_id, check_name, outcome, provider, detail, cost_usd)\n  SELECT $1::uuid, x.check_name, x.outcome, x.provider, x.detail, COALESCE(x.cost_usd, 0)\n    FROM jsonb_to_recordset($6::jsonb) AS x(check_name text, outcome text, provider text, detail jsonb, cost_usd numeric)\n   RETURNING 1)\nSELECT transition_lead(upd.id, 'received'::lead_status, $2::lead_status, $3, 'WF-02') AS transitioned,\n       (SELECT count(*) FROM chk) AS checks_written\n  FROM upd",
+        "options": {
+          "queryReplacement": "={{ [$json.lead.id, $json.decision.to, $json.decision.reason, JSON.stringify($json.flags), $json.consent_basis ?? null, JSON.stringify($json.checks)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "rg-postgres",
+          "name": "RG Postgres"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "position": [
+        2860,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Init state": {
+      "main": [
+        [
+          {
+            "node": "H1 Classify email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H1 Classify email": {
+      "main": [
+        [
+          {
+            "node": "H1 Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H1 Evaluate": {
+      "main": [
+        [
+          {
+            "node": "H1 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H1 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H2 Suppression",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H2 Suppression": {
+      "main": [
+        [
+          {
+            "node": "H2 Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H2 Evaluate": {
+      "main": [
+        [
+          {
+            "node": "H2 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H2 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H3 Flags",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H3 Flags": {
+      "main": [
+        [
+          {
+            "node": "H3 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H3 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H4 Region rule",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H4 Region rule": {
+      "main": [
+        [
+          {
+            "node": "H4 Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H4 Evaluate": {
+      "main": [
+        [
+          {
+            "node": "H4 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H4 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H5 Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H5 Normalize": {
+      "main": [
+        [
+          {
+            "node": "H5 Normalize eval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H5 Normalize eval": {
+      "main": [
+        [
+          {
+            "node": "H5 Needs LLM?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H5 Needs LLM?": {
+      "main": [
+        [
+          {
+            "node": "H5 LLM normalize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "H5 Merge names",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H5 LLM normalize": {
+      "main": [
+        [
+          {
+            "node": "H5 Merge names",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H5 Merge names": {
+      "main": [
+        [
+          {
+            "node": "H5 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H5 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H6 Resolve company",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H6 Resolve company": {
+      "main": [
+        [
+          {
+            "node": "H6 Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H6 Evaluate": {
+      "main": [
+        [
+          {
+            "node": "H6 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H6 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H7 Company limits",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H7 Company limits": {
+      "main": [
+        [
+          {
+            "node": "H7 Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H7 Evaluate": {
+      "main": [
+        [
+          {
+            "node": "H7 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H7 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H8 DNS MX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H8 DNS MX": {
+      "main": [
+        [
+          {
+            "node": "H8 Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H8 Evaluate": {
+      "main": [
+        [
+          {
+            "node": "H8 Continue?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H8 Continue?": {
+      "main": [
+        [
+          {
+            "node": "H9 Verify primary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H9 Verify primary": {
+      "main": [
+        [
+          {
+            "node": "H9 Route primary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H9 Route primary": {
+      "main": [
+        [
+          {
+            "node": "H9 Escalate?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H9 Escalate?": {
+      "main": [
+        [
+          {
+            "node": "H10 Verify escalation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H10 Verify escalation": {
+      "main": [
+        [
+          {
+            "node": "H10 Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verified": {
+      "main": [
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H10 Evaluate": {
+      "main": [
+        [
+          {
+            "node": "Finalize lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every minute": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run on demand": {
+      "main": [
+        [
+          {
+            "node": "Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate": {
+      "main": [
+        [
+          {
+            "node": "Stage enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage enabled": {
+      "main": [
+        [
+          {
+            "node": "Start run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "node": "Claim leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim leads": {
+      "main": [
+        [
+          {
+            "node": "Leads claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads claimed": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead loop": {
+      "main": [
+        [
+          {
+            "node": "End run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Release lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release lead": {
+      "main": [
+        [
+          {
+            "node": "Lead loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "rgwf00"
+  },
+  "tags": [
+    {
+      "name": "reachguard"
+    }
+  ],
+  "active": false
+}

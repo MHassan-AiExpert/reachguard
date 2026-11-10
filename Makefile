@@ -1,4 +1,4 @@
-.PHONY: up down migrate seed test test-db test-service test-workflows demo eval lint build-workflows import-workflows
+.PHONY: up down migrate seed test test-db test-service test-workflows check-workflow-sql demo eval lint build-workflows import-workflows
 
 COMPOSE ?= docker compose
 
@@ -27,6 +27,9 @@ test-service-unit:
 
 test-workflows:
 	cd workflows && npm test
+
+check-workflow-sql: build-workflows
+	bash scripts/check-workflow-sql.sh
 
 build-workflows:
 	cd workflows && npm run build
