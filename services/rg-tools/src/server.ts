@@ -2,14 +2,19 @@ import { timingSafeEqual } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
+import { createLlmProvider, type LlmProvider } from './adapters/llm/index.js';
 import { createVerifier, type Verifier } from './adapters/verify/index.js';
 import { loadContracts, type ContractRegistry } from './lib/contracts.js';
 import { loadHygieneLists, type HygieneLists } from './lib/email.js';
+import { createPgLlmStore, type LlmStore } from './lib/llm-store.js';
+import { loadPricing, type Pricing } from './lib/pricing.js';
+import { createPromptStore, type PromptStore } from './lib/prompts.js';
 import { createMemoryCache, systemResolver, type DnsResolver, type MxCache } from './lib/mx.js';
 import { registerAuth } from './routes/auth.js';
 import { registerContracts } from './routes/contracts.js';
 import { registerHealth } from './routes/health.js';
 import { registerHygiene } from './routes/hygiene.js';
+import { registerLlm } from './routes/llm.js';
 import { registerVerify } from './routes/verify.js';
 
 export interface Deps {
@@ -20,6 +25,10 @@ export interface Deps {
   mxCache?: MxCache;
   lists?: HygieneLists;
   verifier?: Verifier;
+  llmProvider?: LlmProvider;
+  llmStore?: LlmStore;
+  pricing?: Pricing;
+  prompts?: PromptStore;
 }
 
 export interface ResolvedDeps extends Deps {
@@ -28,6 +37,9 @@ export interface ResolvedDeps extends Deps {
   mxCache: MxCache;
   lists: HygieneLists;
   verifier: Verifier;
+  llmProvider: LlmProvider;
+  pricing: Pricing;
+  prompts: PromptStore;
 }
 
 const PUBLIC_PREFIXES = ['/healthz', '/u/'];
@@ -47,6 +59,10 @@ export function buildServer(deps: Deps): FastifyInstance {
     mxCache: deps.mxCache ?? createMemoryCache(),
     lists: deps.lists ?? loadHygieneLists(deps.config.configDir),
     verifier: deps.verifier ?? createVerifier(deps.config),
+    llmProvider: deps.llmProvider ?? createLlmProvider(deps.config),
+    pricing: deps.pricing ?? loadPricing(deps.config.configDir),
+    prompts: deps.prompts ?? createPromptStore(deps.config.promptsDir),
+    llmStore: deps.llmStore ?? (deps.db ? createPgLlmStore(deps.db) : undefined),
   };
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
 
@@ -64,5 +80,6 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerContracts(app, resolved);
   registerHygiene(app, resolved);
   registerVerify(app, resolved);
+  registerLlm(app, resolved);
   return app;
 }

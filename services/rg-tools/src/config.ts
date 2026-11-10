@@ -24,6 +24,9 @@ export interface Config {
   llmStrongModel: string;
   llmJudgeModel: string;
   llmDailyBudgetUsd: number;
+  llmFixturesDir: string;
+  geminiApiKey: string;
+  openaiApiKey: string;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -63,5 +66,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     llmStrongModel: env.LLM_STRONG_MODEL ?? 'google:gemini-2.5-pro',
     llmJudgeModel: env.LLM_JUDGE_MODEL ?? env.LLM_STRONG_MODEL ?? 'google:gemini-2.5-pro',
     llmDailyBudgetUsd: Number(env.LLM_DAILY_BUDGET_USD ?? 5),
+    llmFixturesDir: env.LLM_FIXTURES_DIR ?? path.join(root, 'services/rg-tools/test/fixtures/llm'),
+    geminiApiKey: env.GEMINI_API_KEY ?? '',
+    openaiApiKey: env.OPENAI_API_KEY ?? '',
   };
 }

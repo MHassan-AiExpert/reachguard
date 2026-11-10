@@ -27,6 +27,9 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     llmStrongModel: 'google:gemini-2.5-pro',
     llmJudgeModel: 'google:gemini-2.5-pro',
     llmDailyBudgetUsd: 5,
+    llmFixturesDir: path.join(repoRoot, 'services/rg-tools/test/fixtures/llm'),
+    geminiApiKey: '',
+    openaiApiKey: '',
     ...overrides,
   };
 }

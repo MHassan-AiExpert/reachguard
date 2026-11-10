@@ -16,9 +16,4 @@ export interface Verifier {
   verify(email: string, tier: VerifyTier, opts?: VerifyOptions): Promise<VerifyOutcome>;
 }
 
-export class NotConfigured extends Error {
-  constructor(what: string) {
-    super(`${what} is not configured`);
-    this.name = 'NotConfigured';
-  }
-}
+export { NotConfigured } from '../../lib/errors.js';
