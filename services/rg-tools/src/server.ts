@@ -2,19 +2,32 @@ import { timingSafeEqual } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
+import { createVerifier, type Verifier } from './adapters/verify/index.js';
 import { loadContracts, type ContractRegistry } from './lib/contracts.js';
+import { loadHygieneLists, type HygieneLists } from './lib/email.js';
+import { createMemoryCache, systemResolver, type DnsResolver, type MxCache } from './lib/mx.js';
 import { registerAuth } from './routes/auth.js';
 import { registerContracts } from './routes/contracts.js';
 import { registerHealth } from './routes/health.js';
+import { registerHygiene } from './routes/hygiene.js';
+import { registerVerify } from './routes/verify.js';
 
 export interface Deps {
   config: Config;
   db?: Db;
   contracts?: ContractRegistry;
+  dns?: DnsResolver;
+  mxCache?: MxCache;
+  lists?: HygieneLists;
+  verifier?: Verifier;
 }
 
 export interface ResolvedDeps extends Deps {
   contracts: ContractRegistry;
+  dns: DnsResolver;
+  mxCache: MxCache;
+  lists: HygieneLists;
+  verifier: Verifier;
 }
 
 const PUBLIC_PREFIXES = ['/healthz', '/u/'];
@@ -30,6 +43,10 @@ export function buildServer(deps: Deps): FastifyInstance {
   const resolved: ResolvedDeps = {
     ...deps,
     contracts: deps.contracts ?? loadContracts(deps.config.contractsDir),
+    dns: deps.dns ?? systemResolver,
+    mxCache: deps.mxCache ?? createMemoryCache(),
+    lists: deps.lists ?? loadHygieneLists(deps.config.configDir),
+    verifier: deps.verifier ?? createVerifier(deps.config),
   };
   const app = Fastify({ logger: false, bodyLimit: 2 * 1024 * 1024 });
 
@@ -45,5 +62,7 @@ export function buildServer(deps: Deps): FastifyInstance {
   registerHealth(app, resolved);
   registerAuth(app, resolved);
   registerContracts(app, resolved);
+  registerHygiene(app, resolved);
+  registerVerify(app, resolved);
   return app;
 }
