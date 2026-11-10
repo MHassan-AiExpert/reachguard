@@ -2,8 +2,10 @@ import type { Meta, PartResult, SuiteResult } from './lib/types.js';
 
 const cell = (s: string): string => s.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 
-function partStatus(p: PartResult): string {
-  return p.status === 'run' ? 'run' : `not run: ${p.reason ?? 'no reason given'}`;
+function summarize(p: PartResult): string {
+  const failed = p.cases.filter((c) => !c.passed).length;
+  const missed = p.metrics.some((m) => m.met === false);
+  return missed || failed ? `${failed} failed case(s)${missed ? ', target NOT MET' : ''}` : `${p.cases.length} of ${p.cases.length} cases passed`;
 }
 
 /**
@@ -26,15 +28,14 @@ export function renderReport(results: SuiteResult[], meta: Meta): string {
   out.push(`**${ran.length} of ${parts.length} parts ran.** ${missed.length ? `Targets NOT MET: ${missed.join('; ')}.` : 'Every target on a part that ran was met.'}`);
   out.push('A part that did not run says why and prints no numbers. Nothing in this file is estimated.', '');
 
-  out.push('## Summary', '', '| Suite | Part | Status |', '|---|---|---|');
-  for (const r of results) for (const p of r.parts) out.push(`| ${cell(r.suite)} | ${cell(p.name)} | ${cell(partStatus(p))} |`);
+  out.push('## Summary', '', '| Suite | Part | Result |', '|---|---|---|');
+  for (const r of results) for (const p of ran.filter((x) => r.parts.includes(x))) out.push(`| ${cell(r.suite)} | ${cell(p.name)} | ${cell(summarize(p))} |`);
   out.push('');
 
   for (const r of results) {
-    out.push(`## ${r.suite}`, '');
     for (const p of r.parts) {
-      out.push(`### ${r.suite} / ${p.name}`, '', `Scope: ${p.scope}`, '', `Status: ${partStatus(p)}`, '');
       if (p.status !== 'run') continue;
+      out.push(`## ${r.suite} / ${p.name}`, '', `Scope: ${p.scope}`, '');
       if (p.metrics.length) {
         out.push('| Metric | Result | Target | Met |', '|---|---|---|---|');
         for (const m of p.metrics) {
@@ -51,6 +52,12 @@ export function renderReport(results: SuiteResult[], meta: Meta): string {
         out.push('');
       }
     }
+  }
+  const rest = parts.filter((p) => p.status !== 'run');
+  if (rest.length) {
+    out.push('## Run separately', '', 'These parts need an API key or the full n8n stack and are not part of this report. Run them with `make eval-local` (API key) or the sandbox runner; none of their numbers appear here.', '');
+    for (const r of results) for (const p of r.parts.filter((x) => x.status !== 'run')) out.push(`- ${cell(r.suite)} / ${cell(p.name)}: ${cell(p.scope)} Needs: ${cell(p.reason ?? 'no reason given')}`);
+    out.push('');
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n') + '\n';
 }

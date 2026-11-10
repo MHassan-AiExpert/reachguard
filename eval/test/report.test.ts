@@ -22,9 +22,11 @@ const skipped: SuiteResult = {
 };
 
 describe('renderReport', () => {
-  it('marks a part that did not run as "not run: <reason>" and never prints its metrics', () => {
+  it('lists a part that did not run under "Run separately" with its reason and never prints its metrics', () => {
     const md = renderReport([skipped], meta);
-    expect(md).toContain('not run: LLM gateway returned HTTP 502');
+    expect(md).toContain('## Run separately');
+    expect(md).toContain('LLM gateway returned HTTP 502');
+    expect(md).not.toContain('### classifier');
     expect(md).not.toContain('36/40');
     expect(md).not.toContain('90%');
     expect(md).not.toContain('accuracy');
