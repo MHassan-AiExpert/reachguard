@@ -7,18 +7,19 @@ import { authHeaders, repoRoot, testConfig } from './helpers.js';
 type Lead = { email: string; website?: string; expected: { group: string }; [k: string]: unknown };
 const leads: Lead[] = JSON.parse(readFileSync(path.join(repoRoot, 'sandbox/leads.seed.json'), 'utf8'));
 const app = buildServer({ config: testConfig() });
-const post = (url: string, payload: unknown) => app.inject({ method: 'POST', url, headers: authHeaders, payload });
+const post = (url: string, payload: Record<string, unknown>) => app.inject({ method: 'POST', url, headers: authHeaders, payload });
 
 describe('sandbox seed data against the real hygiene code', () => {
   it('every seed lead satisfies the intake contract once the eval-only field is removed', async () => {
-    for (const { expected: _e, ...intake } of leads) {
+    for (const l of leads) {
+      const intake = Object.fromEntries(Object.entries(l).filter(([k]) => k !== 'expected'));
       const res = await post('/v1/contracts/validate', { schema: 'lead-intake', data: intake });
-      expect(res.json(), intake.email as string).toMatchObject({ valid: true });
+      expect(res.json(), l.email).toMatchObject({ valid: true });
     }
   });
 
   it('the intake contract would reject a lead that still carries `expected`', async () => {
-    const res = await post('/v1/contracts/validate', { schema: 'lead-intake', data: leads[0] });
+    const res = await post('/v1/contracts/validate', { schema: 'lead-intake', data: leads[0]! });
     expect(res.json().valid).toBe(false);
   });
 
