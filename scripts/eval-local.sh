@@ -12,6 +12,6 @@ export DATABASE_URL="$TEST_DATABASE_URL" LLM_MODE="${LLM_MODE:-replay}"
 (cd "$ROOT/services/rg-tools" && npx tsx src/main.ts > "$WORK/rg-tools.log" 2>&1) &
 TOOLS_PID=$!
 trap 'kill $TOOLS_PID 2>/dev/null || true; testdb_cleanup' EXIT
-for _ in $(seq 1 40); do curl -sf "http://localhost:$PORT_TOOLS/health" >/dev/null 2>&1 && break; sleep 0.5; done
+for _ in $(seq 1 40); do curl -sf "http://localhost:$PORT_TOOLS/healthz" >/dev/null 2>&1 && break; sleep 0.5; done
 export RG_TOOLS_URL="http://localhost:$PORT_TOOLS"
 cd "$ROOT/eval" && npm run eval --silent

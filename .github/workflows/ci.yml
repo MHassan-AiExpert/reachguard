@@ -1,0 +1,147 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 3 * * *'   # nightly live evaluation
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+        working-directory: services/rg-tools
+      - run: npm ci
+        working-directory: workflows
+      - run: npm ci
+        working-directory: eval
+      - run: npm run lint && npm run typecheck
+        working-directory: services/rg-tools
+      - run: npm run lint
+        working-directory: workflows
+      - run: npm run typecheck
+        working-directory: eval
+
+  unit:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci && npm test
+        working-directory: services/rg-tools
+      - run: npm ci && npm test
+        working-directory: workflows
+      - run: npm ci && npm test
+        working-directory: eval
+
+  migration:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Schema, transition and claim tests on a throwaway Postgres 16
+        run: bash scripts/db-test.sh
+      - name: rg-tools tests including the database-backed ones
+        run: npm ci --prefix services/rg-tools && bash scripts/service-test.sh
+
+  workflow-lint:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+        working-directory: workflows
+      - name: Build, then lint exported JSON (no pinData, credentials or executions; tagged; known credentials only)
+        run: npm run build && npm run lint
+        working-directory: workflows
+      - name: Built JSON is committed and current
+        run: git diff --exit-code workflows/dist
+
+  contracts:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+        working-directory: services/rg-tools
+      - name: Schemas compile and examples validate
+        run: npx vitest run test/contracts.test.ts
+        working-directory: services/rg-tools
+      - name: Sandbox data validates against the contracts
+        run: node scripts/validate-sandbox.mjs
+
+  eval-replay:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+        working-directory: services/rg-tools
+      - run: npm ci
+        working-directory: eval
+      - name: Evaluation with LLM_MODE=replay (parts that need a model report "not run")
+        env: { LLM_MODE: replay }
+        run: bash scripts/eval-local.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: eval-report-replay, path: docs/EVAL_REPORT.md }
+
+  eval-live:
+    if: github.event_name == 'schedule' && vars.RG_LIVE_EVAL == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+        working-directory: services/rg-tools
+      - run: npm ci
+        working-directory: eval
+      - name: Evaluation with real model calls
+        env:
+          LLM_MODE: live
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LLM_DAILY_BUDGET_USD: '3'
+        run: bash scripts/eval-local.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: eval-report-live, path: docs/EVAL_REPORT.md }
+
+  secret-scan:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: bash scripts/secret-scan.sh
+
+  image-scan:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f services/rg-tools/Dockerfile -t rg-tools:ci .
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: rg-tools:ci
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
